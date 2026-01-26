@@ -3,25 +3,28 @@ import streamlit as st
 # 1. 앱 설정 (최상단 필수)
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: 모바일 7열 배열 강제 및 UI 최적화
+# CSS: 모바일 7열 강제 고정 및 터치 최적화
 st.markdown("""
     <style>
-    /* 7열 배치를 위해 컬럼 간격 및 패딩 최소화 */
+    /* 7열 배치를 강제하기 위한 컨테이너 설정 */
     [data-testid="column"] {
         padding: 0px 0.5px !important;
         flex: 1 1 0% !important;
         min-width: 0px !important;
+        white-space: nowrap !important;
     }
+    /* 버튼 디자인: 텍스트가 잘리지 않도록 폰트 크기 조절 */
     div.stButton > button {
         width: 100% !important;
         height: 42px !important;
-        font-size: 14px !important;
+        font-size: 13px !important;
         padding: 0px !important;
         border-radius: 4px !important;
-        border: 1px solid #ddd !important;
+        border: 1px solid #e0e0e0 !important;
+        background-color: white !important;
     }
-    /* 숫자 입력창 아래 여백 줄임 */
-    .stNumberInput { margin-bottom: -10px; }
+    /* 간격 최적화 */
+    .stNumberInput { margin-bottom: -15px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -60,63 +63,4 @@ cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 def card_picker(label):
     st.write(f"**{label}**")
     key_name = f"state_{label}"
-    if key_name not in st.session_state:
-        st.session_state[key_name] = "A"
-
-    # 상단 숫자 직접 선택창
-    idx = cards.index(st.session_state[key_name])
-    sel_card = st.selectbox(f"Select {label}", cards, index=idx, key=f"sel_{label}")
-    st.session_state[key_name] = sel_card
-
-    # 첫 번째 줄 (A, K, Q, J, T, 9, 8)
-    r1 = st.columns(7)
-    for i, c in enumerate(cards[:7]):
-        with r1[i]:
-            if st.button(c, key=f"b1_{label}_{c}"):
-                st.session_state[key_name] = c
-                st.rerun()
-
-    # 두 번째 줄 (7, 6, 5, 4, 3, 2) + 빈칸
-    r2 = st.columns(7)
-    for i, c in enumerate(cards[7:]):
-        with r2[i]:
-            if st.button(c, key=f"b2_{label}_{c}"):
-                st.session_state[key_name] = c
-                st.rerun()
-    with r2[6]: st.write("") # 7열 맞춤용 빈칸
-                
-    return st.session_state[key_name]
-
-v1 = card_picker("Card 1")
-v2 = card_picker("Card 2")
-suit = st.radio("Suit Type", ["Suited(s)", "Off-suit(o)"], horizontal=True)
-
-# --- 5. 전략 로직 ---
-def get_logic(env, handy, stack, pos, v1, v2, suit, act):
-    ranks = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
-    r1, r2 = ranks[v1], ranks[v2]
-    if r1 < r2: v1, v2 = v2, v1
-    hand = f"{v1}{v2}" + ("s" if suit == "Suited(s)" and v1 != v2 else "")
-
-    if hand in ["AA", "KK", "QQ", "AKs", "AKo"]:
-        return "🔴 RAISE / 3-BET", "Premium hand. Build the pot."
-    if stack >= 200 and v1 == v2 and r1 <= 10:
-        return "🟢 CALL (SET MINE)", "Deep stack efficiency for set mining."
-    if pos in ["BTN", "CO"] and act == "Unopened":
-        return "🟠 OPEN RAISE", "Positional advantage for stealing."
-    return "🔵 FOLD", "Mathematical expectation is low."
-
-# --- 6. 결과 출력 ---
-st.divider()
-res_act, res_why = get_logic(env, handy, stack, pos, v1, v2, suit, action)
-
-if "🔴" in res_act: st.error(f"## {res_act}")
-elif "🟠" in res_act: st.warning(f"## {res_act}")
-elif "🟢" in res_act: st.success(f"## {res_act}")
-else: st.info(f"## {res_act}")
-
-st.caption(f"💡 {res_why}")
-
-# --- 7. 심플 복기 ---
-with st.expander("📝 Review"):
-    rev = st.radio("Result",
+    if key_name not in
