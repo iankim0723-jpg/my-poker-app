@@ -3,17 +3,25 @@ import streamlit as st
 # 1. 앱 설정 (최상단 필수)
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: 모바일 버튼 크기 및 간격 최적화
+# CSS: 모바일 7열 배열 강제 및 UI 최적화
 st.markdown("""
     <style>
-    div.stButton > button {
-        width: 100%;
-        height: 42px;
-        font-weight: bold;
-        font-size: 15px;
-        border-radius: 5px;
-        padding: 0px;
+    /* 7열 배치를 위해 컬럼 간격 및 패딩 최소화 */
+    [data-testid="column"] {
+        padding: 0px 0.5px !important;
+        flex: 1 1 0% !important;
+        min-width: 0px !important;
     }
+    div.stButton > button {
+        width: 100% !important;
+        height: 42px !important;
+        font-size: 14px !important;
+        padding: 0px !important;
+        border-radius: 4px !important;
+        border: 1px solid #ddd !important;
+    }
+    /* 숫자 입력창 아래 여백 줄임 */
+    .stNumberInput { margin-bottom: -10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -21,23 +29,22 @@ st.markdown("""
 st.title("🃏 JM HOLDEM LEGEND 03 V1")
 st.error("⚠️ Unauthorized Distribution Prohibited (배포금지)")
 
-# --- 2. 사이드바 (슬라이더 + 숫자입력 하이브리드) ---
+# --- 2. 사이드바 (하이브리드 입력) ---
 with st.sidebar:
     st.header("⚙️ Game Setup")
     env = st.selectbox("Environment", ["Online", "Live Pub", "Tournament"])
     
     st.markdown("---")
-    # Handy 설정
-    h_val = st.number_input("Handy (Direct)", min_value=2, max_value=9, value=6)
-    handy = st.slider("Handy (Slider)", 2, 9, int(h_val))
+    # Handy 하이브리드
+    h_input = st.number_input("Handy (Direct)", min_value=2, max_value=9, value=6)
+    handy = st.slider("Handy (Slider)", 2, 9, int(h_input))
 
     st.markdown("---")
-    # Stack 설정 (50~500, 25단위)
-    s_val = st.number_input("Stack BB (Direct)", min_value=1, max_value=1000, value=100)
+    # Stack 하이브리드 (25~1000)
+    s_input = st.number_input("Stack BB (Direct)", min_value=1, max_value=1000, value=100)
     stack_opts = list(range(25, 1001, 25))
-    # 입력값이 옵션에 없을 경우 가장 가까운 값 선택
-    default_s = int(s_val) if int(s_val) in stack_opts else 100
-    stack = st.select_slider("Stack BB (Slider)", options=stack_opts, value=default_s)
+    def_s = int(s_input) if int(s_input) in stack_opts else 100
+    stack = st.select_slider("Stack BB (Slider)", options=stack_opts, value=def_s)
 
 # --- 3. 메인 화면 (상황 설정) ---
 st.markdown("### 1. Situation")
@@ -46,36 +53,37 @@ action = st.radio("Opponent Action", ["Unopened", "Raised"], horizontal=True)
 
 st.markdown("---")
 
-# --- 4. 카드 선택 (숫자 입력 + 7x2 버튼) ---
+# --- 4. 카드 선택 (7x2 강제 버튼 배열) ---
 st.markdown("### 2. Select Hand")
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
 def card_picker(label):
     st.write(f"**{label}**")
-    key_name = f"card_state_{label}"
-    
+    key_name = f"state_{label}"
     if key_name not in st.session_state:
         st.session_state[key_name] = "A"
 
-    # 상단 숫자 선택창 (입력/선택 겸용)
+    # 상단 숫자 직접 선택창
     idx = cards.index(st.session_state[key_name])
-    sel_card = st.selectbox(f"Choose {label}", cards, index=idx, key=f"sel_{label}")
+    sel_card = st.selectbox(f"Select {label}", cards, index=idx, key=f"sel_{label}")
     st.session_state[key_name] = sel_card
 
-    # 7장씩 두 줄 버튼
-    r1_cols = st.columns(7)
+    # 첫 번째 줄 (A, K, Q, J, T, 9, 8)
+    r1 = st.columns(7)
     for i, c in enumerate(cards[:7]):
-        with r1_cols[i]:
-            if st.button(c, key=f"btn1_{label}_{c}"):
+        with r1[i]:
+            if st.button(c, key=f"b1_{label}_{c}"):
                 st.session_state[key_name] = c
                 st.rerun()
 
-    r2_cols = st.columns(7)
+    # 두 번째 줄 (7, 6, 5, 4, 3, 2) + 빈칸
+    r2 = st.columns(7)
     for i, c in enumerate(cards[7:]):
-        with r2_cols[i]:
-            if st.button(c, key=f"btn2_{label}_{c}"):
+        with r2[i]:
+            if st.button(c, key=f"b2_{label}_{c}"):
                 st.session_state[key_name] = c
                 st.rerun()
+    with r2[6]: st.write("") # 7열 맞춤용 빈칸
                 
     return st.session_state[key_name]
 
@@ -107,10 +115,8 @@ elif "🟠" in res_act: st.warning(f"## {res_act}")
 elif "🟢" in res_act: st.success(f"## {res_act}")
 else: st.info(f"## {res_act}")
 
-st.caption(f"💡 {res_why} (Stack: {stack}BB / Handy: {handy})")
+st.caption(f"💡 {res_why}")
 
-# --- 7. 복기 ---
+# --- 7. 심플 복기 ---
 with st.expander("📝 Review"):
-    rev = st.radio("Result", ["Win", "Loss"], horizontal=True)
-    if st.button("Save"):
-        st.success(f"Saved: {rev}")
+    rev = st.radio("Result",
