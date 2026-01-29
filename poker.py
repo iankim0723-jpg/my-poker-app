@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
-from PIL import Image
 
-# 1. 앱 설정
+# 1. 앱 설정 (최상단 필수)
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: 모바일 최적화 및 디자인
+# CSS: 모바일 2단 테이블 및 UI 최적화
 st.markdown("""
     <style>
     div.stButton > button { width: 100%; height: 45px; font-weight: bold; border-radius: 8px; }
@@ -21,7 +20,15 @@ st.markdown("""
         font-size: 16px;
         margin-bottom: 20px;
     }
-    .stTable { font-size: 12px !important; }
+    /* 모바일 테이블 가독성 강화 */
+    .detail-table {
+        font-size: 11px !important;
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+    }
+    .detail-table th { background-color: #333; color: white; padding: 6px; }
+    .detail-table td { border: 1px solid #444; padding: 6px; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -30,15 +37,11 @@ st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 �
 
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
 
-# --- 2. 사이드바 (카메라 스캔 & 게임 설정) ---
+# --- 2. 사이드바 (카메라, 플레이어 수, 성향, 스택 설정) ---
 with st.sidebar:
     st.header("📸 Scan My Hand")
-    # 카메라 촬영 또는 사진 업로드 기능
     captured_image = st.camera_input("Take a photo of your cards")
-    if captured_image:
-        st.success("카메라 이미지가 수신되었습니다. (이미지 분석 기능은 서버 연동 준비 중입니다.)")
-        st.image(captured_image, caption="Captured Card", use_container_width=True)
-
+    
     st.markdown("---")
     st.header("⚙️ Game Setup")
     env = st.selectbox("Environment", ["Online", "Live Pub", "Tournament"])
@@ -61,7 +64,7 @@ action = st.radio("Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing 
 
 st.markdown("---")
 
-# --- 4. 카드 선택 (자동 인식 준비/수동 선택) ---
+# --- 4. 카드 선택 ---
 st.markdown("### 2. Select My Hand")
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
@@ -73,18 +76,19 @@ with c2_col:
 
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. 데이터 엔진 ---
-stats = {
-    "UTG": {"pct": "14-15%", "pair": "77+"},
-    "UTG+1": {"pct": "16-17%", "pair": "66+"},
-    "MP": {"pct": "18-20%", "pair": "55+"},
-    "LJ": {"pct": "20-22%", "pair": "44+"},
-    "HJ": {"pct": "23-25%", "pair": "33+"},
-    "CO": {"pct": "28-32%", "pair": "22+"},
-    "BTN": {"pct": "45-50%", "pair": "22+"},
-    "SB": {"pct": "38-42%", "pair": "22+"}
+# --- 5. 상세 데이터베이스 (이미지 데이터 기반) ---
+stats_detailed = {
+    "UTG": {"pct": "14-15%", "pair": "77+", "ax": "ATs+, AJo+", "broad": "KQs, QJs, JTs", "memo": "가장 타이트"},
+    "UTG+1": {"pct": "16-17%", "pair": "66+", "ax": "ATs+, AJo+", "broad": "KQs, QJs, JTs", "memo": "약간 확장"},
+    "MP": {"pct": "18-20%", "pair": "55+", "ax": "A9s+, ATo+", "broad": "KTs+, QTs+", "memo": "표준"},
+    "LJ": {"pct": "20-22%", "pair": "44+", "ax": "A8s+, ATo+", "broad": "KTs+, QTs+", "memo": "중후반"},
+    "HJ": {"pct": "23-25%", "pair": "33+", "ax": "A7s+, A9o+", "broad": "K9s+, Q9s+", "memo": "스틸 시작"},
+    "CO": {"pct": "28-32%", "pair": "22+", "ax": "A2s+, A2o+", "broad": "K5s+, Q8s+", "memo": "스틸 핵심"},
+    "BTN": {"pct": "45-50%", "pair": "22+", "ax": "Any Ax", "broad": "Any Suited K", "memo": "가장 넓음"},
+    "SB": {"pct": "38-42%", "pair": "22+", "ax": "A2s+, A2o+", "broad": "K2s+, Q5s+", "memo": "믹스 선호"}
 }
 
+# --- 6. 전략 로직 ---
 def get_poker_strategy(pos, v1, v2, suit, act, hero, stack, handy):
     ranks = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = ranks[v1], ranks[v2]
@@ -98,34 +102,59 @@ def get_poker_strategy(pos, v1, v2, suit, act, hero, stack, handy):
 
     if stack <= 15 and act == "Unopened (RFI)":
         if r1 >= (13 + w + handy_adj) or (is_pair and r1 >= (5 + w)):
-            return "🔴 ALL-IN (Push)", f"{stack}BB 최적 푸쉬 범위입니다."
+            return "🔴 ALL-IN (Push)", f"{stack}BB 숏스택 최적 푸쉬 범위입니다."
 
     if act == "Unopened (RFI)":
         if pos == "BB": return "⚪ CHECK/FOLD", "빅블라인드입니다."
-        p = stats.get(pos, {"pct": "N/A", "pair": "77+"})
+        p = stats_detailed.get(pos, {"pct": "N/A"})
         if hand[:2] in ["AA", "KK", "QQ", "JJ", "AK"]:
-            return "🔴 RAISE", "프리미엄 밸류 레이즈."
+            return "🔴 RAISE", "프리미엄 밸류 레이즈 필수."
         if r1 >= 10 or suit == "s":
-            return "🟠 OPEN", f"{pos} 포지션 오픈 가이드."
+            return "🟠 OPEN", f"{pos} 포지션의 수익성 있는 오픈 구간입니다."
 
-    return "🔵 FOLD", "기대값이 낮습니다."
+    return "🔵 FOLD", "수학적으로 기대값이 낮습니다."
 
-# --- 6. 결과 출력 ---
+# --- 7. 결과 및 상세 레인지표 (2줄 레이아웃) ---
 st.divider()
 res, why = get_poker_strategy(pos, v1, v2, suit, action, hero_style, stack, handy)
 if "RAISE" in res or "ALL-IN" in res: st.error(f"## Action: {res}")
 else: st.info(f"## Action: {res}")
-st.write(f"👤 **스타일:** {hero_style} | 👥 **Handy:** {handy}인 | 💡 **가이드:** {why}")
 
-# --- 7. 하단 차트 데이터 ---
+st.write(f"👤 **스타일:** {hero_style} | 👥 **Handy:** {handy}인 | 📊 **오픈 확률:** {stats_detailed.get(pos, {}).get('pct', 'N/A')}")
+
+st.markdown("---")
+st.markdown("### 📊 RFI Position Range Detail (2-Row View)")
+
+# 상단 4개 포지션과 하단 4개 포지션으로 나누어 가독성 극대화
+col1, col2 = st.columns(2)
+positions = list(stats_detailed.keys())
+
+with col1:
+    for p in positions[:4]:
+        data = stats_detailed[p]
+        st.markdown(f"""
+        <div style="border: 1px solid #444; padding: 10px; border-radius: 5px; margin-bottom: 5px;">
+            <strong style="color: #ff4b4b;">{p} ({data['pct']})</strong><br>
+            <small>Pairs: {data['pair']} | Ax: {data['ax']}</small><br>
+            <small>Broad: {data['broad']}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+with col2:
+    for p in positions[4:]:
+        data = stats_detailed[p]
+        st.markdown(f"""
+        <div style="border: 1px solid #444; padding: 10px; border-radius: 5px; margin-bottom: 5px;">
+            <strong style="color: #ff4b4b;">{p} ({data['pct']})</strong><br>
+            <small>Pairs: {data['pair']} | Ax: {data['ax']}</small><br>
+            <small>Broad: {data['broad']}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
 st.markdown("---")
 st.markdown("### 🚀 Short Stack Push Range (10-20BB)")
 push_df = pd.DataFrame({
     "Position": ["UTG", "HJ", "CO", "BTN", "SB"],
-    "Push Examples": ["22+, A2s+, A7o+, KTs+", "22+, A2s+, A5o+, K9s+", "22+, Any Suited Ax, A2o+", "Any Ax, Any Suited Kx", "Any Ax, K2s+, Q5s+"]
+    "Push Details": ["22+, A2s+, A7o+, KTs+", "22+, A2s+, A5o+, K9s+", "22+, Any Suited Ax, A2o+", "Any Ax, Any Suited Kx", "Any Ax, K2s+, Q5s+"]
 })
 st.table(push_df)
-
-st.markdown("### 📊 RFI Position Statistics")
-range_df = pd.DataFrame.from_dict(stats, orient='index')
-st.table(range_df)
