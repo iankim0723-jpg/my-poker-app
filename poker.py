@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from PIL import Image
 
 # 1. 앱 설정
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
@@ -28,25 +29,25 @@ st.markdown("""
 st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"<br><small style="color: #ccc;">- 더홀릭 우승 경험자 CBJ -</small></div>', unsafe_allow_html=True)
 
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
-st.error("⚠️ ALL FEATURES & DATA INTEGRATED")
 
-# --- 2. 사이드바 (플레이어 수, 성향, 환경 설정) ---
+# --- 2. 사이드바 (카메라 스캔 & 게임 설정) ---
 with st.sidebar:
+    st.header("📸 Scan My Hand")
+    # 카메라 촬영 또는 사진 업로드 기능
+    captured_image = st.camera_input("Take a photo of your cards")
+    if captured_image:
+        st.success("카메라 이미지가 수신되었습니다. (이미지 분석 기능은 서버 연동 준비 중입니다.)")
+        st.image(captured_image, caption="Captured Card", use_container_width=True)
+
+    st.markdown("---")
     st.header("⚙️ Game Setup")
     env = st.selectbox("Environment", ["Online", "Live Pub", "Tournament"])
-    
-    st.markdown("---")
-    # 플레이어 숫자(Handy) 설정
     h_in = st.number_input("Handy (Player Count)", 2, 9, 6)
     handy = st.slider("Adjust Handy", 2, 9, int(h_in))
     
     st.markdown("---")
     st.header("👤 My Playing Style")
-    hero_style = st.select_slider(
-        "Select My Range Tightness",
-        options=["Very Tight", "Tight", "Standard", "Loose", "Very Loose"],
-        value="Standard"
-    )
+    hero_style = st.select_slider("My Range Tightness", options=["Very Tight", "Tight", "Standard", "Loose", "Very Loose"], value="Standard")
     
     st.markdown("---")
     s_in = st.number_input("Stack BB", 1, 1000, 100)
@@ -60,7 +61,7 @@ action = st.radio("Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing 
 
 st.markdown("---")
 
-# --- 4. 카드 선택 ---
+# --- 4. 카드 선택 (자동 인식 준비/수동 선택) ---
 st.markdown("### 2. Select My Hand")
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
@@ -74,14 +75,14 @@ suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
 # --- 5. 데이터 엔진 ---
 stats = {
-    "UTG": {"pct": "14-15%", "pair": "77+", "s_ax": 10},
-    "UTG+1": {"pct": "16-17%", "pair": "66+", "s_ax": 10},
-    "MP": {"pct": "18-20%", "pair": "55+", "s_ax": 9},
-    "LJ": {"pct": "20-22%", "pair": "44+", "s_ax": 8},
-    "HJ": {"pct": "23-25%", "pair": "33+", "s_ax": 7},
-    "CO": {"pct": "28-32%", "pair": "22+", "s_ax": 2},
-    "BTN": {"pct": "45-50%", "pair": "22+", "s_ax": 2},
-    "SB": {"pct": "38-42%", "pair": "22+", "s_ax": 2}
+    "UTG": {"pct": "14-15%", "pair": "77+"},
+    "UTG+1": {"pct": "16-17%", "pair": "66+"},
+    "MP": {"pct": "18-20%", "pair": "55+"},
+    "LJ": {"pct": "20-22%", "pair": "44+"},
+    "HJ": {"pct": "23-25%", "pair": "33+"},
+    "CO": {"pct": "28-32%", "pair": "22+"},
+    "BTN": {"pct": "45-50%", "pair": "22+"},
+    "SB": {"pct": "38-42%", "pair": "22+"}
 }
 
 def get_poker_strategy(pos, v1, v2, suit, act, hero, stack, handy):
@@ -97,34 +98,34 @@ def get_poker_strategy(pos, v1, v2, suit, act, hero, stack, handy):
 
     if stack <= 15 and act == "Unopened (RFI)":
         if r1 >= (13 + w + handy_adj) or (is_pair and r1 >= (5 + w)):
-            return "🔴 ALL-IN (Push)", f"{stack}BB 최적 푸쉬 범위입니다.", "N/A"
+            return "🔴 ALL-IN (Push)", f"{stack}BB 최적 푸쉬 범위입니다."
 
     if act == "Unopened (RFI)":
-        if pos == "BB": return "⚪ CHECK/FOLD", "빅블라인드입니다.", "N/A"
-        p = stats.get(pos, {"pct": "N/A", "pair": 7, "s_ax": 10})
+        if pos == "BB": return "⚪ CHECK/FOLD", "빅블라인드입니다."
+        p = stats.get(pos, {"pct": "N/A", "pair": "77+"})
         if hand[:2] in ["AA", "KK", "QQ", "JJ", "AK"]:
-            return "🔴 RAISE", "프리미엄 밸류 레이즈.", p["pct"]
+            return "🔴 RAISE", "프리미엄 밸류 레이즈."
         if r1 >= 10 or suit == "s":
-            return "🟠 OPEN", f"{pos} 포지션 오픈 가이드.", p["pct"]
+            return "🟠 OPEN", f"{pos} 포지션 오픈 가이드."
 
-    return "🔵 FOLD", "기대값이 낮습니다.", stats.get(pos, {}).get("pct", "N/A")
+    return "🔵 FOLD", "기대값이 낮습니다."
 
 # --- 6. 결과 출력 ---
 st.divider()
-res, why, prob = get_poker_strategy(pos, v1, v2, suit, action, hero_style, stack, handy)
+res, why = get_poker_strategy(pos, v1, v2, suit, action, hero_style, stack, handy)
 if "RAISE" in res or "ALL-IN" in res: st.error(f"## Action: {res}")
 else: st.info(f"## Action: {res}")
-st.write(f"👤 **스타일:** {hero_style} | 👥 **Handy:** {handy}인 | 📊 **오픈 확률:** {prob}")
+st.write(f"👤 **스타일:** {hero_style} | 👥 **Handy:** {handy}인 | 💡 **가이드:** {why}")
 
-# --- 7. 하단 복구: 숏스택 올인 샤브 & 핸드레인지표 ---
+# --- 7. 하단 차트 데이터 ---
 st.markdown("---")
 st.markdown("### 🚀 Short Stack Push Range (10-20BB)")
 push_df = pd.DataFrame({
     "Position": ["UTG", "HJ", "CO", "BTN", "SB"],
-    "Push Hand Examples": ["22+, A2s+, A7o+, KTs+", "22+, A2s+, A5o+, K9s+", "22+, Any Suited Ax, A2o+", "Any Ax, Any Suited Kx", "Any Ax, K2s+, Q5s+"]
+    "Push Examples": ["22+, A2s+, A7o+, KTs+", "22+, A2s+, A5o+, K9s+", "22+, Any Suited Ax, A2o+", "Any Ax, Any Suited Kx", "Any Ax, K2s+, Q5s+"]
 })
 st.table(push_df)
 
 st.markdown("### 📊 RFI Position Statistics")
 range_df = pd.DataFrame.from_dict(stats, orient='index')
-st.table(range_df[['pct', 'pair']])
+st.table(range_df)
