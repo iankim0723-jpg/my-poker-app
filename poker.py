@@ -20,6 +20,7 @@ st.markdown("""
         font-size: 16px;
         margin-bottom: 20px;
     }
+    .stTable { font-size: 12px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -27,14 +28,15 @@ st.markdown("""
 st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"<br><small style="color: #ccc;">- 더홀릭 우승 경험자 CBJ -</small></div>', unsafe_allow_html=True)
 
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
+st.error("⚠️ ALL FEATURES & DATA INTEGRATED")
 
-# --- 2. 사이드바 (플레이어 숫자 및 환경 설정) ---
+# --- 2. 사이드바 (플레이어 수, 성향, 환경 설정) ---
 with st.sidebar:
     st.header("⚙️ Game Setup")
     env = st.selectbox("Environment", ["Online", "Live Pub", "Tournament"])
     
     st.markdown("---")
-    # 플레이어 숫자(Handy) 추가
+    # 플레이어 숫자(Handy) 설정
     h_in = st.number_input("Handy (Player Count)", 2, 9, 6)
     handy = st.slider("Adjust Handy", 2, 9, int(h_in))
     
@@ -70,42 +72,59 @@ with c2_col:
 
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. 레인지 조절 엔진 (Handy 반영) ---
-def get_adjusted_strategy(pos, v1, v2, suit, act, hero, stack, handy):
+# --- 5. 데이터 엔진 ---
+stats = {
+    "UTG": {"pct": "14-15%", "pair": "77+", "s_ax": 10},
+    "UTG+1": {"pct": "16-17%", "pair": "66+", "s_ax": 10},
+    "MP": {"pct": "18-20%", "pair": "55+", "s_ax": 9},
+    "LJ": {"pct": "20-22%", "pair": "44+", "s_ax": 8},
+    "HJ": {"pct": "23-25%", "pair": "33+", "s_ax": 7},
+    "CO": {"pct": "28-32%", "pair": "22+", "s_ax": 2},
+    "BTN": {"pct": "45-50%", "pair": "22+", "s_ax": 2},
+    "SB": {"pct": "38-42%", "pair": "22+", "s_ax": 2}
+}
+
+def get_poker_strategy(pos, v1, v2, suit, act, hero, stack, handy):
     ranks = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = ranks[v1], ranks[v2]
     if r1 < r2: v1, v2 = v2, v1
     hand = f"{v1}{v2}{suit}"
+    is_pair = (v1 == v2)
     
-    style_weights = {"Very Tight": 2, "Tight": 1, "Standard": 0, "Loose": -1, "Very Loose": -2}
-    w = style_weights[hero]
-
-    # 플레이어 숫자(Handy)가 적을수록(숏핸디) 레인지 확장 보정
+    style_map = {"Very Tight": 2, "Tight": 1, "Standard": 0, "Loose": -1, "Very Loose": -2}
+    w = style_map[hero]
     handy_adj = 0 if handy >= 6 else -1
 
     if stack <= 15 and act == "Unopened (RFI)":
-        if r1 >= (13 + w + handy_adj) or (v1 == v2 and r1 >= (5 + w)):
-            return "🔴 ALL-IN (Push)", f"현재 {handy}인 테이블 및 나의 {hero} 성향에 맞춘 푸쉬 범위입니다."
+        if r1 >= (13 + w + handy_adj) or (is_pair and r1 >= (5 + w)):
+            return "🔴 ALL-IN (Push)", f"{stack}BB 최적 푸쉬 범위입니다.", "N/A"
 
     if act == "Unopened (RFI)":
-        base_threshold = {"UTG": 13, "MP": 12, "CO": 11, "BTN": 10, "SB": 10}.get(pos, 12)
-        final_threshold = base_threshold + w + handy_adj
-
+        if pos == "BB": return "⚪ CHECK/FOLD", "빅블라인드입니다.", "N/A"
+        p = stats.get(pos, {"pct": "N/A", "pair": 7, "s_ax": 10})
         if hand[:2] in ["AA", "KK", "QQ", "JJ", "AK"]:
-            return "🔴 RAISE", "프리미엄 핸드: 무조건 레이즈.", "N/A"
-            
-        if r1 >= final_threshold:
-            return "🟠 OPEN", f"{handy}인 테이블 기준, 나의 {hero} 스타일에 최적화된 오픈 범위입니다.", "N/A"
+            return "🔴 RAISE", "프리미엄 밸류 레이즈.", p["pct"]
+        if r1 >= 10 or suit == "s":
+            return "🟠 OPEN", f"{pos} 포지션 오픈 가이드.", p["pct"]
 
-    return "🔵 FOLD", "현재 설정 기준으로는 폴드를 추천합니다.", "N/A"
+    return "🔵 FOLD", "기대값이 낮습니다.", stats.get(pos, {}).get("pct", "N/A")
 
 # --- 6. 결과 출력 ---
 st.divider()
-res, why, prob = get_adjusted_strategy(pos, v1, v2, suit, action, hero_style, stack, handy)
+res, why, prob = get_poker_strategy(pos, v1, v2, suit, action, hero_style, stack, handy)
+if "RAISE" in res or "ALL-IN" in res: st.error(f"## Action: {res}")
+else: st.info(f"## Action: {res}")
+st.write(f"👤 **스타일:** {hero_style} | 👥 **Handy:** {handy}인 | 📊 **오픈 확률:** {prob}")
 
-if "RAISE" in res or "ALL-IN" in res or "OPEN" in res:
-    st.error(f"## Action: {res}")
-else:
-    st.info(f"## Action: {res}")
+# --- 7. 하단 복구: 숏스택 올인 샤브 & 핸드레인지표 ---
+st.markdown("---")
+st.markdown("### 🚀 Short Stack Push Range (10-20BB)")
+push_df = pd.DataFrame({
+    "Position": ["UTG", "HJ", "CO", "BTN", "SB"],
+    "Push Hand Examples": ["22+, A2s+, A7o+, KTs+", "22+, A2s+, A5o+, K9s+", "22+, Any Suited Ax, A2o+", "Any Ax, Any Suited Kx", "Any Ax, K2s+, Q5s+"]
+})
+st.table(push_df)
 
-st.write(f"👤 **스타일:** {hero_style} | 👥 **Handy:** {handy}인 | 💡 **가이드:** {why}")
+st.markdown("### 📊 RFI Position Statistics")
+range_df = pd.DataFrame.from_dict(stats, orient='index')
+st.table(range_df[['pct', 'pair']])
