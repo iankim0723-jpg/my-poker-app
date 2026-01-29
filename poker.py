@@ -1,101 +1,96 @@
 import streamlit as st
+import pandas as pd
 
-# 1. 앱 설정 (최상단 필수)
+# 1. 앱 설정
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: 모바일 7열 강제 배열 및 가독성 최적화
+# CSS: 모바일 최적화 및 표 디자인
 st.markdown("""
     <style>
-    [data-testid="column"] { padding: 0px 0.5px !important; flex: 1 1 0% !important; min-width: 0px !important; }
-    div.stButton > button { width: 100% !important; height: 42px !important; font-size: 14px !important; font-weight: bold !important; padding: 0px !important; border-radius: 4px !important; border: 1px solid #ddd !important; }
-    .stSelectbox { margin-bottom: -10px; }
+    div.stButton > button { width: 100%; height: 45px; font-weight: bold; border-radius: 8px; }
+    .stSelectbox { margin-bottom: 5px; }
+    .range-table { font-size: 12px; text-align: center; width: 100%; border-collapse: collapse; }
+    .range-table th, .range-table td { border: 1px solid #ddd; padding: 4px; }
+    .range-table th { background-color: #f2f2f2; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🃏 JM HOLDEM LEGEND 03 V1")
-st.error("⚠️ PRO CHART DATA LOADED (배포금지)")
+st.title("🛡️ JM HOLDEM LEGEND 03 V1")
+st.error("⚠️ PRO DATA & RANGE CHART INTEGRATED")
 
-# --- 2. 사이드바 (프로 차트 기반 설정) ---
+# --- 2. 사이드바 (기본 설정) ---
 with st.sidebar:
     st.header("⚙️ Game Setup")
-    env = st.selectbox("Field", ["Online", "Live Pub", "Tournament"])
-    
+    env = st.selectbox("Environment", ["Online", "Live Pub", "Tournament"])
     st.markdown("---")
-    # 이미지 3번: 세분화된 9인 포지션 반영
-    pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB"]
-    pos = st.selectbox("My Position", pos_list, index=6) # 기본 BTN
+    s_in = st.number_input("Stack BB", 1, 1000, 100)
+    stack = st.select_slider("Adjust BB", options=list(range(10, 1001, 10)), value=int(s_in) if s_in <= 1000 else 100)
 
-    st.markdown("---")
-    s_in = st.number_input("Stack BB (Direct)", 1, 1000, 100)
-    stack = st.select_slider("Stack BB (Slider)", options=list(range(10, 1001, 10)), value=int(s_in) if s_in <= 1000 else 100)
-
-# --- 3. 메인 화면 (상황 설정) ---
-st.markdown("### 1. Situation")
-action = st.radio("Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing All-in"], horizontal=True)
+# --- 3. 메인 화면: 상황 및 포지션 (스크롤/입력) ---
+st.markdown("### 1. Situation & Position")
+pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
+pos = st.selectbox("Select Position (Scroll/Type)", pos_list, index=6)
+action = st.radio("Opponent Action", ["Unopened (RFI)", "Facing Raise"], horizontal=True)
 
 st.markdown("---")
 
-# --- 4. 카드 선택 (7x2 강제 배열) ---
+# --- 4. 카드 선택 (드롭다운 스크롤/입력) ---
 st.markdown("### 2. Select Hand")
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
-def card_picker(label):
-    st.write(f"**{label}**")
-    key = f"state_{label}"
-    if key not in st.session_state: st.session_state[key] = "A"
-    
-    idx = cards.index(st.session_state[key])
-    sel = st.selectbox(f"Select {label}", cards, index=idx, key=f"sel_{label}")
-    st.session_state[key] = sel
+c1_col, c2_col = st.columns(2)
+with c1_col:
+    v1 = st.selectbox("Card 1", cards, key="v1")
+with c2_col:
+    v2 = st.selectbox("Card 2", cards, index=1, key="v2")
 
-    r1 = st.columns(7)
-    for i, c in enumerate(cards[:7]):
-        with r1[i]:
-            if st.button(c, key=f"b1_{label}_{c}"):
-                st.session_state[key] = c
-                st.rerun()
-    r2 = st.columns(7)
-    for i, c in enumerate(cards[7:]):
-        with r2[i]:
-            if st.button(c, key=f"b2_{label}_{c}"):
-                st.session_state[key] = c
-                st.rerun()
-    return st.session_state[key]
-
-v1 = card_picker("Card 1")
-v2 = card_picker("Card 2")
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. 프로 차트 데이터 로직 (이미지 3번 기반) ---
-def get_pro_logic(pos, v1, v2, suit, act):
+# --- 5. 프로 전략 엔진 데이터 ---
+stats = {
+    "UTG": {"pct": "14-15%", "pair": "77+", "ax": "ATs+, AJo+", "broad": "KQs, QJs, JTs", "memo": "가장 타이트"},
+    "UTG+1": {"pct": "16-17%", "pair": "66+", "ax": "ATs+, AJo+", "broad": "KQs, QJs, JTs", "memo": "약간 확장"},
+    "MP": {"pct": "18-20%", "pair": "55+", "ax": "A9s+, ATo+", "broad": "KTs+, QTs+, J9s+", "memo": "표준"},
+    "LJ": {"pct": "20-22%", "pair": "44+", "ax": "A8s+, ATo+", "broad": "KTs+, QTs+, J9s+", "memo": "중후반"},
+    "HJ": {"pct": "23-25%", "pair": "33+", "ax": "A7s+, A9o+", "broad": "K9s+, Q9s+, J9s+", "memo": "스틸 시작"},
+    "CO": {"pct": "28-32%", "pair": "22+", "ax": "A2s+, A2o+", "broad": "K5s+, Q8s+, J8s+", "memo": "스틸 핵심"},
+    "BTN": {"pct": "45-50%", "pair": "22+", "ax": "모든 Ax", "broad": "모든 수딧 K/Q", "memo": "가장 넓음"},
+    "SB": {"pct": "38-42%", "pair": "22+", "ax": "A2s+, A2o+", "broad": "K2s+, Q5s+, J6s+", "memo": "믹스 선호"}
+}
+
+def get_poker_strategy(pos, v1, v2, suit, act):
     ranks = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = ranks[v1], ranks[v2]
     if r1 < r2: v1, v2 = v2, v1
     hand = f"{v1}{v2}{suit}"
+    is_pair = (v1 == v2)
 
-    # 프리미엄 핸드 공통
-    if hand[:2] in ["AA", "KK", "QQ", "JJ", "AK"]:
-        return "🔴 RAISE (Standard)", "최상위 프리미엄 핸드입니다. 밸류를 키우세요."
-
-    # RFI 오픈 차트 (이미지 3번 반영)
     if act == "Unopened (RFI)":
-        if pos == "UTG":
-            if r1 >= 14 and suit == "s": return "🟠 OPEN", "UTG: 가장 타이트한 범위(14-15%)로 오픈하세요."
-        elif pos == "HJ":
-            if r1 >= 10: return "🟠 OPEN", "HJ: 스틸이 시작되는 지점입니다 (23-25%)."
-        elif pos == "BTN":
-            if r1 >= 10 or suit == "s": return "🟠 OPEN", "BTN: 가장 넓은 범위(45-50%)로 압박하세요."
-        elif pos == "CO":
-            if r1 >= 11: return "🟠 OPEN", "CO: 스틸의 핵심 포지션입니다 (28-32%)."
+        if pos == "BB": return "⚪ CHECK/FOLD", "빅블라인드 상황입니다.", "N/A"
+        p_data = stats[pos]
+        
+        # 기본 레이즈 로직 (간소화)
+        if hand[:2] in ["AA", "KK", "QQ", "JJ", "AK"]:
+            return "🔴 RAISE", "프리미엄 핸드: 밸류 빌딩 필수", p_data["pct"]
+        
+        if pos in ["BTN", "CO"] and (r1 >= 10 or suit == "s"):
+            return "🔴 RAISE", f"{pos} 포지션: 적극적인 블라인드 스틸 구간", p_data["pct"]
 
-    return "🔵 FOLD", "수학적으로 기대값이 낮아 폴드를 권장합니다."
+        return "🔵 FOLD", "RFI 레인지 밖: 폴드 권장", p_data["pct"]
+
+    return "🔵 FOLD", "Facing Raise: 타이트한 대응 필요", "N/A"
 
 # --- 6. 결과 출력 ---
 st.divider()
-res, why = get_pro_logic(pos, v1, v2, suit, action)
+res, why, prob = get_poker_strategy(pos, v1, v2, suit, action)
 
-if "🔴" in res: st.error(f"## {res}")
-elif "🟠" in res: st.warning(f"## {res}")
-else: st.info(f"## {res}")
+if "RAISE" in res: st.error(f"## Action: {res}")
+else: st.info(f"## Action: {res}")
+st.write(f"📊 **포지션 오픈 확률:** {prob} | 💡 **이유:** {why}")
 
-st.info(f"**💡 CHART ADVICE:** {why}")
+# --- 7. 최하단 핸드 레인지표 (이미지 데이터 기반) ---
+st.markdown("---")
+st.markdown("### 📊 RFI Range Reference Chart")
+range_df = pd.DataFrame.from_dict(stats, orient='index')
+range_df.columns = ['오픈%', '페어', '수딧/오프 Ax', '수딧 브로드웨이', '메모']
+st.table(range_df)
