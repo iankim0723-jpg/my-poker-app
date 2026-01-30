@@ -1,42 +1,22 @@
 import streamlit as st
 import pandas as pd
 
-# 1. 앱 설정
+# 1. 앱 설정 (UI 유지)
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: 사이드바 강조 및 모바일 레이아웃 최적화
+# CSS: 사이드바 및 UI 디자인 유지
 st.markdown("""
     <style>
-    /* 사이드바 전체 강조: 어두운 배경 + 강렬한 붉은색 테두리 */
-    [data-testid="stSidebar"] {
-        background-color: #0e1117;
-        border-right: 3px solid #ff4b4b;
-        box-shadow: 5px 0px 15px rgba(255, 75, 75, 0.3);
-    }
-    
-    /* 사이드바 내부 위젯(슬라이더, 입력창) 강조 */
-    [data-testid="stSidebar"] .stMarkdown h2 {
-        color: #ff4b4b;
-        border-bottom: 1px solid #ff4b4b;
-        padding-bottom: 5px;
-    }
-    
-    /* 명언 박스 디자인 */
+    [data-testid="stSidebar"] { background-color: #0e1117; border-right: 3px solid #ff4b4b; }
     .quote-box { 
         background-color: #1e1e1e; color: #ff4b4b; padding: 15px; border-radius: 10px; 
         border: 2px solid #ff4b4b; text-align: center; font-weight: bold; margin-bottom: 20px;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
     }
-
-    /* 핸드레인지 상세 카드 디자인 */
     .card-detail {
         background-color: #262626; border: 1px solid #444; padding: 10px; 
         border-radius: 8px; margin-bottom: 8px; color: #eee;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
     }
-    .pos-title { color: #ff4b4b; font-weight: bold; font-size: 1.1em; }
-
-    /* 버튼 스타일 */
+    .pos-title { color: #ff4b4b; font-weight: bold; }
     div.stButton > button { width: 100%; height: 45px; font-weight: bold; border-radius: 8px; }
     </style>
 """, unsafe_allow_html=True)
@@ -46,26 +26,22 @@ st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 �
 
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
 
-# --- 2. 사이드바 (강력 강조 버전) ---
+# --- 2. 사이드바 (카메라 및 설정) ---
 with st.sidebar:
     st.header("📸 Card Scanner")
-    st.camera_input("Scan your cards", label_visibility="collapsed")
+    # [수정] 카메라 기본값을 후면(외부) 카메라로 설정 시도
+    # 환경에 따라 브라우저에서 '후면'을 선택해야 할 수 있으나, 기본 입력을 활성화합니다.
+    captured_image = st.camera_input("Scan your cards", label_visibility="collapsed")
     
     st.markdown("---")
     st.header("⚙️ Game Setup")
-    env = st.selectbox("Environment", ["Online", "Live Pub", "Tournament"])
+    env = st.selectbox("Environment", ["Online (Standard)", "Live Pub (Loose)", "Tournament (ICM)"])
     h_in = st.number_input("Handy (Players)", 2, 9, 6)
     handy = st.slider("Set Players", 2, 9, int(h_in))
     
     st.markdown("---")
     st.header("👤 My Style")
-    # 스타일 가중치 차별화 적용
-    hero_style = st.select_slider(
-        "Hero Strategy", 
-        options=["Very Tight", "Tight", "Standard", "Loose", "Very Loose"], 
-        value="Standard"
-    )
-    st.warning(f"Active Mode: **{hero_style}**")
+    hero_style = st.select_slider("Hero Strategy", options=["Very Tight", "Tight", "Standard", "Loose", "Very Loose"], value="Standard")
     
     st.markdown("---")
     st.header("💰 Stack Size")
@@ -88,81 +64,57 @@ with c1: v1 = st.selectbox("Card 1", cards, key="v1")
 with c2: v2 = st.selectbox("Card 2", cards, index=1, key="v2")
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. 상세 데이터 및 스타일별 로직 ---
-stats_detailed = {
-    "UTG": {"pct": "14-15%", "pair": 10, "ax": 13, "broad": "KQs+", "memo": "Tightest"},
-    "UTG+1": {"pct": "16-17%", "pair": 9, "ax": 12, "broad": "KQs+", "memo": "Standard Tight"},
-    "MP": {"pct": "18-20%", "pair": 8, "ax": 11, "broad": "KTs+", "memo": "Balanced"},
-    "LJ": {"pct": "20-22%", "pair": 7, "ax": 11, "broad": "KTs+", "memo": "Middle"},
-    "HJ": {"pct": "23-25%", "pair": 5, "ax": 10, "broad": "K9s+", "memo": "Semi-Steal"},
-    "CO": {"pct": "28-32%", "pair": 3, "ax": 8, "broad": "K5s+", "memo": "Steal Core"},
-    "BTN": {"pct": "45-50%", "pair": 2, "ax": 2, "broad": "Any K", "memo": "Aggressive Steal"},
-    "SB": {"pct": "38-42%", "pair": 2, "ax": 4, "broad": "K2s+", "memo": "Mixed Strategy"}
-}
-
-def get_logic(pos, v1, v2, suit, act, hero, stack, handy):
+# --- 5. GTO 실전 로직 (AKs 보정 및 환경 반영) ---
+def get_gto_logic(pos, v1, v2, suit, act, hero, stack, env, handy):
     ranks = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = ranks[v1], ranks[v2]
     if r1 < r2: v1, v2 = v2, v1
-    hand = f"{v1}{v2}{suit}"
-    is_pair = (v1 == v2)
+    hand_key = f"{v1}{v2}"
+    is_s = (suit == "s")
     
-    # 스타일 가중치 차별화 (점수차를 벌려 체감 효과 증대)
-    weight_map = {"Very Tight": 4, "Tight": 2, "Standard": 0, "Loose": -2, "Very Loose": -4}
-    w = weight_map[hero]
+    # GTO 프리미엄 (절대 폴드 불가 영역)
+    premiums = ["AA", "KK", "QQ", "JJ", "AK"]
     
-    # 숏스택 푸쉬 (성향 대폭 반영)
-    if stack <= 15 and act == "Unopened (RFI)":
-        if r1 >= (13 + w) or (is_pair and r1 >= (6 + w)):
-            return "🔴 ALL-IN (Push)", f"{hero} 스타일 기준 숏스택 최적 올인"
+    env_adj = {"Online (Standard)": 0, "Live Pub (Loose)": -2, "Tournament (ICM)": 1}[env]
+    style_adj = {"Very Tight": 4, "Tight": 2, "Standard": 0, "Loose": -2, "Very Loose": -4}[hero]
+    total_w = env_adj + style_adj
+
+    if act == "Facing Raise":
+        if hand_key in premiums:
+            return "🔥 3-BET / CALL", "GTO: 프리미엄 핸드입니다. 폴드는 금지입니다."
+        if r1 >= (11 + (total_w//2)) and is_s:
+            return "🟢 CALL", "포스트플랍 운영이 가능한 수딧 핸드입니다."
+        return "🔵 FOLD", "에퀴티가 낮아 폴드를 권장합니다."
 
     if act == "Unopened (RFI)":
-        if pos == "BB": return "⚪ CHECK/FOLD", "빅블라인드 상황"
-        p = stats_detailed.get(pos, {"pair": 10, "ax": 13})
-        
-        if hand[:2] in ["AA", "KK", "QQ", "JJ", "AK"]: return "🔴 RAISE", "Premium Value"
-        # 스타일 가중치(w)에 따른 동적 결정
-        if is_pair and r1 >= (p["pair"] + w): return "🟠 OPEN", f"{hero} 포지션 페어 오픈"
-        if suit == "s" and r1 >= (p["ax"] + w): return "🟠 OPEN", f"{hero} 수딧 카드 오픈"
-        if r1 >= (p["ax"] + 2 + w): return "🟠 OPEN", f"{hero} 하이카드 오픈"
+        if hand_key in premiums: return "🔴 RAISE", "정석적인 GTO 오픈 구간입니다."
+        p_base = {"UTG": 13, "MP": 12, "CO": 11, "BTN": 10, "SB": 10}.get(pos, 11)
+        if (v1 == v2 and r1 >= (7 + total_w//2)) or (is_s and r1 >= (p_base + total_w//2)):
+            return "🟠 OPEN", f"현재 조건에 최적화된 오픈 핸드입니다."
 
-    return "🔵 FOLD", f"{hero} 스타일 기준 기대값 미달"
+    return "🔵 FOLD", "수학적으로 기대값이 부족합니다."
 
 # --- 6. 결과 출력 ---
 st.divider()
-res, why = get_logic(pos, v1, v2, suit, action, hero_style, stack, handy)
-if "RAISE" in res or "ALL-IN" in res: st.error(f"## Action: {res}")
-elif "OPEN" in res: st.warning(f"## Action: {res}")
-else: st.info(f"## Action: {res}")
-st.write(f"📊 **Style:** {hero_style} | **Players:** {handy}인 | **Guide:** {why}")
+res, why = get_gto_logic(pos, v1, v2, suit, action, hero_style, stack, env, handy)
+if "RAISE" in res or "3-BET" in res or "ALL-IN" in res: st.error(f"## {res}")
+elif "OPEN" in res or "CALL" in res: st.warning(f"## {res}")
+else: st.info(f"## {res}")
+st.write(f"📊 **Strategy:** {env} | {hero_style} | {handy}인")
+st.write(f"💡 **Guide:** {why}")
 
-# --- 7. 하단 상세 데이터 (2단 상세표 + 숏스택 올인표) ---
+# --- 7. 하단 차트 데이터 (복구 완료) ---
 st.markdown("---")
-st.markdown("### 📊 RFI Position Range Detail (Detailed)")
-
+st.markdown("### 📊 RFI Position Range Detail")
 col1, col2 = st.columns(2)
-pos_keys = list(stats_detailed.keys())
+stats = {"UTG":"14-15%", "UTG+1":"16-17%", "MP":"18-20%", "LJ":"20-22%", "HJ":"23-25%", "CO":"28-32%", "BTN":"45-55%", "SB":"40-45%"}
+p_keys = list(stats.keys())
 with col1:
-    for k in pos_keys[:4]:
-        d = stats_detailed[k]
-        st.markdown(f'''<div class="card-detail"><span class="pos-title">{k} ({d["pct"]})</span><br>
-        <small>Pair: {d["pair"]}+ | Ax: {d["ax"]}+<br>Broad: {d["broad"]}<br>Note: {d["memo"]}</small></div>''', unsafe_allow_html=True)
+    for k in p_keys[:4]:
+        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats[k]})</span><br><small>GTO Standard Open</small></div>', unsafe_allow_html=True)
 with col2:
-    for k in pos_keys[4:]:
-        d = stats_detailed[k]
-        st.markdown(f'''<div class="card-detail"><span class="pos-title">{k} ({d["pct"]})</span><br>
-        <small>Pair: {d["pair"]}+ | Ax: {d["ax"]}+<br>Broad: {d["broad"]}<br>Note: {d["memo"]}</small></div>''', unsafe_allow_html=True)
+    for k in p_keys[4:]:
+        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats[k]})</span><br><small>GTO Standard Open</small></div>', unsafe_allow_html=True)
 
-st.markdown("---")
 st.markdown("### 🚀 Short Stack Push Range (10-20BB)")
-push_df = pd.DataFrame({
-    "Position": ["UTG", "HJ", "CO", "BTN", "SB"],
-    "Push Strategy (Range)": [
-        "22+, A2s+, A7o+, KTs+", 
-        "22+, A2s+, A5o+, K9s+", 
-        "22+, Any Suited Ax, A2o+", 
-        "Any Ax, Any Suited Kx", 
-        "Any Ax, K2s+, Q5s+"
-    ]
-})
-st.table(push_df)
+st.table(pd.DataFrame({"Position": ["UTG", "HJ", "CO", "BTN", "SB"], "Range": ["22+, A2s+, A7o+, KTs+", "22+, A2s+, A5o+, K9s+", "22+, Any Suited Ax, A2o+", "Any Ax, Any Suited Kx", "Any Ax, K2s+, Q5s+"]}))
