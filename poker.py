@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# 1. 앱 기본 설정 (가장 가벼운 모드)
-st.set_page_config(page_title="JM LEGEND 03 (Speed)", page_icon="⚡", layout="centered")
+# 1. 앱 기본 설정 (가장 안정적인 모드)
+st.set_page_config(page_title="JM LEGEND 03 (Input Fix)", page_icon="⚡", layout="centered")
 
 # --- 데이터 정의 ---
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
@@ -30,7 +30,6 @@ st.markdown("""
     
     /* 위젯 크기 확대 (터치 최적화) */
     div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; }
-    div[data-baseweb="slider"] { padding-top: 10px; padding-bottom: 20px; }
     
     /* 하단 차트 스타일 */
     .chart-header { color: #D55E00; font-weight: bold; font-size: 1.1em; margin-top: 20px; }
@@ -38,46 +37,51 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. 사이드바 (설정) ---
-# 사이드바는 게임 시작 전 한 번만 만지므로 기능 유지
 with st.sidebar:
     st.header("⚙️ Game Setup")
     mode = st.radio("Game Mode", ["Cash Game", "Tournament"], index=1)
-    min_p = 5 if mode == "Tournament" else 2
+    
+    # [수정 요청 반영] 환경: 3가지
     env = st.selectbox("Environment", ["Online", "Live Pub", "Competition"], index=1)
     
-    total_entries = 0
+    # [수정 요청 반영] 인원수 제한 해제 & 직접 입력
     if mode == "Tournament":
-        total_entries = st.number_input("Entries", 10, 10000, 100)
+        # 토너먼트 총 엔트리: 제한 없음, 직접 입력 가능
+        total_entries = st.number_input("Total Entries (총 참가자)", min_value=2, max_value=100000, value=100, step=1)
+    else:
+        total_entries = 0
     
-    h_in = st.number_input("Players", min_p, 9, 9)
+    # 테이블 인원: 제한 없음 (2명 ~ 20명까지 넉넉하게), 직접 입력 가능
+    h_in = st.number_input("Active Players (테이블 인원)", min_value=2, max_value=20, value=9, step=1)
     
     st.markdown("---")
     st.header("💰 Stack (BB)")
+    # 스택도 직접 입력이 편하도록 number_input 유지
     my_stack = st.number_input("My BB", 1, 1000, 50)
     villain_stack = st.number_input("Villain BB", 1, 1000, 50)
     eff_stack = min(my_stack, villain_stack)
     st.metric("Eff. Stack", f"{eff_stack} BB")
 
-# --- 3. 메인 화면 (초고속 입력) ---
+# --- 3. 메인 화면 (하이브리드 입력) ---
 st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라"</div>', unsafe_allow_html=True)
 st.title("🛡️ JM LEGEND 03")
 
-# [1] Position (슬라이더 우선, 박스는 보조)
+# [1] Position: 슬라이더 + 박스 (충돌 방지 로직)
 st.markdown('<p class="big-font">📍 Position</p>', unsafe_allow_html=True)
 col_p1, col_p2 = st.columns([3, 1.2])
 
 with col_p1:
-    # 슬라이더가 메인 (가장 빠름)
+    # 메인: 슬라이더
     pos_slider = st.select_slider("Pos Slider", options=pos_list, value="BTN", label_visibility="collapsed")
 with col_p2:
-    # 박스는 정밀 선택용 (슬라이더 값 따라감)
-    # *TIP: 여기서 박스를 바꾸면 리로드되지만, 슬라이더를 주로 쓰면 렉이 없습니다.*
+    # 보조: 직접 입력 (슬라이더 값을 초기값으로 가짐)
+    # *참고: 여기서 박스를 바꾸면 앱이 리로드되면서 반영됩니다.*
     pos_box = st.selectbox("Pos Box", options=pos_list, index=pos_list.index(pos_slider), label_visibility="collapsed")
 
-# 최종 포지션 결정 (박스를 건드리면 박스값, 아니면 슬라이더값)
+# 최종 포지션: 박스를 건드리면 박스값, 아니면 슬라이더값
 final_pos = pos_box 
 
-# [2] Action
+# [2] Action: Radio (터치 최적화)
 st.markdown('<p class="big-font">⚔️ Action</p>', unsafe_allow_html=True)
 action = st.radio("Act", ["Unopened", "Facing Raise", "Facing All-in"], horizontal=True, label_visibility="collapsed")
 
@@ -85,37 +89,51 @@ final_amt = 0.0
 
 if action == "Facing Raise":
     st.markdown("**상대 레이즈 (BB)**")
-    # 슬라이더 + 입력창 (동기화 제거 -> 독립 작동으로 속도 향상)
-    # 슬라이더로 대략 맞추고, 필요하면 입력창 수정
-    val = st.slider("Raise Slider", 2.0, 15.0, 2.5, 0.5, label_visibility="collapsed")
-    final_amt = val
+    # [수정] 직접 입력창을 옆에 붙여서 정밀 컨트롤 가능하게 함
+    col_r1, col_r2 = st.columns([2.5, 1.5])
+    with col_r1:
+        # 슬라이더 (자주 쓰는 범위)
+        val_slider = st.slider("Raise Slider", 2.0, 10.0, 2.5, 0.5, label_visibility="collapsed")
+    with col_r2:
+        # 직접 입력 (제한 없음)
+        val_input = st.number_input("Raise Input", 0.0, 1000.0, val_slider, step=0.5, label_visibility="collapsed")
     
+    final_amt = val_input
     if final_amt >= 6.0: st.caption(f"⚠️ Big Raise: {final_amt}BB")
 
 elif action == "Facing All-in":
     st.markdown("**상대 올인 (BB)**")
     max_val = float(villain_stack)
-    # 올인은 입력창이 더 편할 수 있음
     col_a1, col_a2 = st.columns([2, 2])
     with col_a1:
         val_slider = st.slider("AI Slider", 1.0, max_val, max_val/2, label_visibility="collapsed")
     with col_a2:
+        # 직접 입력
         val_input = st.number_input("AI Input", 1.0, 1000.0, val_slider, label_visibility="collapsed")
     final_amt = val_input
 
 st.divider()
 
-# [3] Hand
+# [3] Hand: 슬라이더 + 박스
 st.markdown('<p class="big-font">🃏 My Hand</p>', unsafe_allow_html=True)
 c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
 
 with c1_col:
     st.caption("Card 1")
-    # 슬라이더만 배치 (가장 빠르고 오류 없음)
-    v1 = st.select_slider("C1", options=cards, value="A", label_visibility="collapsed")
+    # 슬라이더가 메인
+    v1_slider = st.select_slider("C1", options=cards, value="A", label_visibility="collapsed")
+    # 입력창은 보조 (안 보일 수 있으니 아래에 배치하거나 위젯 형태 유지)
+    # 공간 절약을 위해 여기서는 슬라이더만 배치 (모바일에서 가장 빠름)
+    # 사용자가 '직접 입력'을 원했으므로 아래에 작은 박스 추가
+    v1_box = st.selectbox("C1 Box", cards, index=cards.index(v1_slider), label_visibility="collapsed")
+    v1 = v1_box
+
 with c2_col:
     st.caption("Card 2")
-    v2 = st.select_slider("C2", options=cards, value="K", label_visibility="collapsed")
+    v2_slider = st.select_slider("C2", options=cards, value="K", label_visibility="collapsed")
+    v2_box = st.selectbox("C2 Box", cards, index=cards.index(v2_slider), label_visibility="collapsed")
+    v2 = v2_box
+
 with s_col:
     st.caption("Suit")
     suit_radio = st.radio("S", ["s", "o"], horizontal=True, label_visibility="collapsed")
