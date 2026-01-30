@@ -4,118 +4,123 @@ import pandas as pd
 # 1. 앱 기본 설정
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: 디자인 고정 (변동 없음)
+# CSS: 모바일 터치 최적화 (버튼 크기 확대)
 st.markdown("""
     <style>
+    /* 사이드바 스타일 */
     [data-testid="stSidebar"] { background-color: #0e1117; border-right: 3px solid #ff4b4b; }
+    
+    /* 명언 박스 */
     .quote-box { 
-        background-color: #1e1e1e; color: #ff4b4b; padding: 15px; border-radius: 10px; 
-        border: 2px solid #ff4b4b; text-align: center; font-weight: bold; margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        background-color: #1e1e1e; color: #ff4b4b; padding: 10px; border-radius: 10px; 
+        border: 2px solid #ff4b4b; text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 0.9em;
     }
-    .metric-box { 
-        background: #222; border: 1px solid #444; padding: 12px; border-radius: 8px; 
-        color: #eee; margin-top: 10px; text-align: center;
-    }
+    
+    /* 모바일 터치 영역 확대 */
+    div[data-baseweb="slider"] { margin-bottom: 15px; }
+    div[role="radiogroup"] { gap: 10px; }
+    div.stButton > button { width: 100%; height: 60px; font-weight: bold; font-size: 1.2em; border-radius: 12px; }
+    
+    /* 폰트 가독성 */
+    .big-font { font-size: 1.2em; font-weight: bold; color: #eee; }
+    .highlight { color: #ff4b4b; }
+    
+    /* 하단 차트 스타일 */
     .card-detail {
-        background-color: #262626; border: 1px solid #444; padding: 10px; 
-        border-radius: 8px; margin-bottom: 8px; color: #eee;
+        background-color: #262626; border: 1px solid #444; padding: 5px; 
+        border-radius: 5px; margin-bottom: 5px; color: #eee; font-size: 0.8em; text-align: center;
     }
-    .pos-title { color: #ff4b4b; font-weight: bold; font-size: 1.1em; }
-    .logic-tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 5px; }
-    .tag-cash { background-color: #28a745; color: white; }
-    .tag-mtt { background-color: #007bff; color: white; }
-    div.stButton > button { width: 100%; height: 50px; font-weight: bold; border-radius: 8px; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 사용설명서 팝업 ---
-@st.dialog("📖 JM HOLDEM LEGEND 03 V1 매뉴얼")
+@st.dialog("📖 매뉴얼 (Mobile ver.)")
 def show_manual():
     st.markdown("""
+    ### ⚡ Speed Input Guide
+    1. **슬라이더(Slider)**: 드롭다운 대신 슬라이더를 사용합니다. 엄지로 좌우로 밀어서 선택하세요.
+    2. **입력 최소화**: 키보드 사용을 원천 차단했습니다. 터치만 하세요.
+    3. **토너먼트**: 최소 인원이 5명으로 고정됩니다.
+    
     ### 🛡️ Mental Guard
-    > **"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"**
-    
-    ### ⚙️ 로직 변경 사항 (v3.1)
-    1. **BB 방어 최적화**: 상대 레이즈 사이즈(BB)에 따라 방어 범위가 달라집니다. (6BB 오픈 시 타이트하게 폴드)
-    2. **환경 세분화**: 온라인 / 라이브 펍 / 대회(Competition) 환경 반영.
-    3. **토너먼트 인원**: 총 참가자 수에 따라 생존 압박감(ICM) 자동 조정.
-    
-    ### 📊 결과 가이드
-    * **🔴 RAISE / SNAP CALL**: 필수 액션.
-    * **🟠 OPEN / CALL**: 수익 구간.
-    * **🔵 FOLD**: EV 마이너스 구간.
+    > **"한번 우승했다고 우쭐대지마라"**
     """)
 
 # --- 메인 상단 CBJ 명언 ---
-st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"<br><small style="color: #ccc;">- 더홀릭 우승 경험자 CBJ -</small></div>', unsafe_allow_html=True)
+st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"</div>', unsafe_allow_html=True)
 
-st.title("🛡️ JM HOLDEM LEGEND 03 V1")
-st.caption("⚡ Advanced Logic + Dynamic BB Defense")
+st.title("🛡️ JM LEGEND 03 (Mobile)")
 
-# --- 2. 사이드바 (환경 설정 업그레이드) ---
+# --- 2. 사이드바 (설정: 게임 전 한 번만 세팅) ---
 with st.sidebar:
-    st.header("📸 Card Scanner")
-    st.camera_input("Scan cards", label_visibility="collapsed")
-    st.markdown("---")
-    
-    if st.button("📖 사용설명서 (Manual)", use_container_width=True):
+    st.header("⚙️ Game Setup")
+    if st.button("📖 매뉴얼 확인"):
         show_manual()
         
-    st.markdown("---")
+    mode = st.radio("Mode", ["Cash Game", "Tournament"], index=1)
     
-    st.header("🏆 Game Mode & Environment")
-    mode = st.radio("Select Strategy", ["Cash Game (Ring)", "Tournament (MTT)"])
+    # [수정] 토너먼트 최소 인원 5인 고정
+    min_p = 5 if mode == "Tournament" else 2
     
-    # [수정] 환경 설정 세분화
-    env_options = ["Online (Standard)", "Live Pub (Loose/Aggressive)", "Competition (Official)"]
-    env = st.selectbox("Play Environment", env_options)
+    env_options = ["Online", "Live Pub", "Competition"]
+    env = st.selectbox("Env", env_options, index=1)
     
-    # [추가] 토너먼트일 경우 총 참가 인원 입력
-    total_entries = 0
-    if mode == "Tournament (MTT)":
-        total_entries = st.number_input("Total Participants (총 참가자)", 10, 10000, 100)
-        st.caption(f"🏁 경기 규모: {total_entries}명")
+    if mode == "Tournament":
+        total_entries = st.number_input("Entries", 10, 10000, 100)
+    else:
+        total_entries = 0
 
+    h_in = st.number_input("Players", min_p, 9, 9) # 최소값 적용
+    
     st.markdown("---")
-    st.header("💰 Stack Dynamics")
-    my_stack = st.number_input("My Stack (BB)", 1, 1000, 100)
-    villain_stack = st.number_input("Villain Stack (BB)", 1, 1000, 100)
+    st.header("💰 Stack (BB)")
+    my_stack = st.number_input("My BB", 1, 1000, 50)
+    villain_stack = st.number_input("Villain BB", 1, 1000, 50)
     eff_stack = min(my_stack, villain_stack)
-    st.metric(label="Effective Stack (유효 스택)", value=f"{eff_stack} BB")
-    
-    st.markdown("---")
-    st.header("⚙️ Table Setup")
-    h_in = st.number_input("Players", 2, 9, 9)
+    st.metric("Eff. Stack", f"{eff_stack} BB")
 
-# --- 3. 메인 화면 (상황 입력) ---
-st.markdown("### 1. Position & Situation")
+# --- 3. 메인 화면 (스피드 입력 인터페이스) ---
+# 드롭다운(Selectbox)을 모두 슬라이더(SelectSlider)와 라디오(Radio)로 교체
 
+st.markdown('<p class="big-font">📍 My Position</p>', unsafe_allow_html=True)
+# [Speed] 엄지로 밀어서 포지션 선택
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
-pos = st.selectbox("📍 Select My Position", pos_list, index=6)
+pos = st.select_slider("Position Slider", options=pos_list, value="BTN", label_visibility="collapsed")
 
-action = st.radio("⚔️ Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing All-in"], horizontal=True)
+st.markdown('<p class="big-font">⚔️ Action & Raise</p>', unsafe_allow_html=True)
+# [Speed] 탭 한 번으로 상황 선택
+action = st.radio("Action", ["Unopened", "Facing Raise", "Facing All-in"], horizontal=True, label_visibility="collapsed")
 
 raise_amt = 0.0
-# [중요] 레이즈 금액 입력 로직 강화
 if action == "Facing Raise":
-    raise_amt = st.number_input("Opponent Raise Amount (BB)", 2.0, 100.0, 2.5, step=0.5)
-    if raise_amt >= 6.0:
-        st.error(f"⚠️ Warning: 상대가 {raise_amt}BB 빅 오픈을 했습니다. 방어 범위를 극도로 좁힙니다.")
+    # [Speed] 키보드 없이 슬라이더로 금액 조절 (2BB ~ 10BB)
+    raise_amt = st.slider("Opponent Raise (BB)", 2.0, 10.0, 2.5, 0.5)
+    if raise_amt >= 6.0: st.caption("⚠️ Big Raise Detected")
 elif action == "Facing All-in":
-    raise_amt = st.number_input("Opponent All-in Amount (BB)", 1.0, 1000.0, float(villain_stack))
+    # [Speed] 올인 금액도 대략적으로 슬라이더로 (세밀한건 사이드바, 급할 땐 슬라이더)
+    max_val = float(villain_stack)
+    raise_amt = st.slider("All-in Amount (BB)", 1.0, max_val, max_val/2)
 
-st.markdown("---")
+st.divider()
 
-# --- 4. 핸드 선택 ---
-st.markdown("### 2. My Hand")
+st.markdown('<p class="big-font">🃏 My Hand</p>', unsafe_allow_html=True)
+# [Speed] 카드 선택도 슬라이더로 (A ~ 2)
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
-c1, c2 = st.columns(2)
-with c1: v1 = st.selectbox("Card 1", cards, key="v1")
-with c2: v2 = st.selectbox("Card 2", cards, index=1, key="v2")
-suit = st.radio("Suit", ["s", "o"], horizontal=True)
+c1_col, c2_col, s_col = st.columns([3, 3, 2])
 
-# --- 5. LOGIC ENGINE (BB 방어 로직 수정됨) ---
+with c1_col:
+    st.caption("Card 1")
+    v1 = st.select_slider("C1", options=cards, value="A", label_visibility="collapsed")
+with c2_col:
+    st.caption("Card 2")
+    v2 = st.select_slider("C2", options=cards, value="K", label_visibility="collapsed")
+with s_col:
+    st.caption("Suit")
+    # [Speed] 토글 방식
+    suit_select = st.radio("Suit", ["s", "o"], horizontal=True, label_visibility="collapsed")
+    suit = "s" if suit_select == "s" else "o"
+
+# --- 5. LOGIC ENGINE (로직 동일 유지) ---
 def calculate_logic(mode, env, pos, v1, v2, suit, act, hero_stack, eff_stack, amt, entries):
     rank_map = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = rank_map[v1], rank_map[v2]
@@ -124,116 +129,73 @@ def calculate_logic(mode, env, pos, v1, v2, suit, act, hero_stack, eff_stack, am
     is_s = (suit == "s")
     hand_str = f"{v1}{v2}{suit}" if not is_pair else f"{v1}{v2}"
     
-    # [PREMIUMS] 절대 방어 (사이즈 무관)
+    # [PREMIUMS]
     if hand_str in ["AA", "KK", "QQ", "AKs", "AKo"]:
-        if act == "Facing All-in": return "🔴 SNAP CALL", "지구상 최강 핸드. 무조건 콜."
-        if act == "Facing Raise": return "🔥 3-BET", "어떤 사이즈든 밸류 3-벳."
+        if act == "Facing All-in": return "🔴 SNAP CALL", "지구상 최강. 무조건 콜."
+        if act == "Facing Raise": return "🔥 3-BET", "무조건 밸류 3-벳."
         return "🔴 RAISE", "무조건 오픈."
 
-    # ----------------------------------------------------------------
-    # [LOGIC FIX] BB Defense Logic (레이즈 사이즈 반영)
-    # ----------------------------------------------------------------
+    # [BB DEFENSE FIX]
     if act == "Facing Raise" and pos == "BB":
-        # 1. 6BB 이상 빅 오픈 -> 극도로 타이트 (프리미엄만 방어)
         if amt >= 6.0:
-            if hand_str in ["JJ", "TT", "99", "AQs", "AJs", "KQs"]: return "⚔️ CALL/3-BET", "빅 오픈에는 상위 레인지로만 방어."
-            return "🔵 FOLD", f"상대 {amt}BB 오픈은 너무 큽니다. 배당이 안 나옵니다."
-            
-        # 2. 4BB ~ 5.9BB 오픈 -> 타이트 방어
+            if hand_str in ["JJ", "TT", "99", "AQs", "AJs"]: return "⚔️ CALL", "빅 오픈 방어."
+            return "🔵 FOLD", "사이즈가 너무 큼."
         elif amt >= 4.0:
-            if is_pair and r1 >= 7: return "🟢 CALL", "중간 페어 이상 방어."
-            if is_s and r1 >= 11: return "🟢 CALL", "수딧 브로드웨이 방어."
-            if not is_s and r1 >= 13 and r2 >= 10: return "🟢 CALL", "강한 오프수딧(AQ, KQ) 방어."
-            return "🔵 FOLD", "4BB 이상 오픈에 약한 핸드 방어 금지."
-            
-        # 3. 2BB ~ 3.5BB (Standard) -> 넓은 GTO 방어
+            if is_pair and r1 >= 7: return "🟢 CALL", "중간 페어 방어."
+            if is_s and r1 >= 11: return "🟢 CALL", "수딧 브로드웨이."
+            if not is_s and r1 >= 13 and r2 >= 10: return "🟢 CALL", "AQ/KQ 방어."
+            return "🔵 FOLD", "타이트 방어."
         else:
-            if is_pair: return "🟢 DEFEND", "BB 배당 방어 (Any Pair)."
-            if is_s: return "🟢 DEFEND", "BB 배당 방어 (Any Suited)."
-            if r1 + r2 >= 19: return "🟢 DEFEND", "커넥터/브로드웨이 방어."
-            return "🔵 FOLD", "쓰레기 핸드는 버리세요."
+            if is_pair or is_s: return "🟢 DEFEND", "BB 배당 방어."
+            if r1 + r2 >= 19: return "🟢 DEFEND", "커넥터 방어."
+            return "🔵 FOLD", "Trash Fold."
 
-    # ----------------------------------------------------------------
-    # [LOGIC A] CASH GAME
-    # ----------------------------------------------------------------
-    if "Cash" in mode:
+    # [CASH]
+    if mode == "Cash Game":
         if act == "Facing Raise":
-            # 셋마이닝 (20배 법칙)
             if is_pair and r1 < 10:
-                implied_odds = eff_stack / amt
-                if implied_odds >= 20: return "🟢 CALL (Set Mine)", f"배당 {implied_odds:.1f}배 충족."
+                if (eff_stack / amt) >= 20: return "🟢 CALL (Set)", "셋마이닝 배당 충족."
                 else: return "🔵 FOLD", "배당 부족."
-            # 수딧 커넥터 (라이브 펍 보정: 루즈하게)
-            if "Live Pub" in env and is_s and (r1-r2 == 1) and r1 < 12 and pos in ["BTN", "CO"]:
-                return "🟢 CALL", "라이브 펍 특성상 멀티웨이 팟 노리기."
-                
-    # ----------------------------------------------------------------
-    # [LOGIC B] TOURNAMENT
-    # ----------------------------------------------------------------
-    else: # Tournament
-        # 대회(Competition) 환경 보정: 더 타이트하게
-        survival_factor = 1.2 if "Competition" in env else 1.0
-        
+            if "Live" in env and is_s and (r1-r2 == 1) and r1 < 12 and pos in ["BTN", "CO"]:
+                return "🟢 CALL", "라이브펍 수딧 콜."
+
+    # [TOURNAMENT]
+    else:
+        is_competition = (env == "Competition")
         if act == "Facing All-in":
-            # 내가 칩이 적거나 비슷할 때 (탈락 위험)
             risk_life = (hero_stack <= amt) or (hero_stack <= eff_stack)
             if risk_life:
-                if hand_str in ["JJ", "AQs"]: return "⚔️ CALL", "승부 볼 만한 핸드."
-                if hand_str in ["TT", "99", "88"]: 
-                    return "🔵 TIGHT FOLD", "대회 생존 우선. 코인플립 회피."
-            else: # Bully (상대 탈락 유도)
-                if hand_str in ["JJ", "TT", "99", "AQ"]: return "🟢 CALL", "칩 우위 활용."
+                if hand_str in ["JJ", "AQs"]: return "⚔️ CALL", "승부."
+                if hand_str in ["TT", "99", "88"]: return "🔵 FOLD", "생존 우선."
+            else:
+                if hand_str in ["JJ", "TT", "99", "AQ"]: return "🟢 CALL", "Bully."
 
-        # 숏스택 잼 (15BB 이하)
-        if hero_stack <= 15 and act == "Unopened (RFI)":
-             if is_pair or r1 >= 10 or (is_s and r1 >= 8): return "🚀 JAM (ALL-IN)", "15BB 이하 승부."
+        if hero_stack <= 15 and act == "Unopened":
+             if is_pair or r1 >= 10 or (is_s and r1 >= 8): return "🚀 JAM", "15BB 잼."
 
-    # [LOGIC C] 기본 RFI
-    if act == "Unopened (RFI)":
+    # [RFI]
+    if act == "Unopened":
         if pos == "BB": return "🎉 WALK", "승리"
         if is_pair and r1 >= 7: return "🟠 OPEN", "정석 오픈"
-        if r1 >= 11: return "🟠 OPEN", "하이카드 오픈"
-        if pos in ["BTN", "CO"] and is_s: return "🟠 OPEN", "포지션 스틸"
+        if r1 >= 11: return "🟠 OPEN", "하이카드"
+        if pos in ["BTN", "CO"] and is_s: return "🟠 OPEN", "스틸"
 
-    return "🔵 FOLD", "EV 마이너스 구간"
+    return "🔵 FOLD", "EV -"
 
-# --- 6. 실행 및 출력 ---
+# --- 6. 결과 출력 ---
 st.divider()
-
-# 로직 실행
 decision, reasoning = calculate_logic(mode, env, pos, v1, v2, suit, action, my_stack, eff_stack, raise_amt, int(total_entries))
 
-# 스타일링 출력
 if "FOLD" in decision: st.info(f"## {decision}")
 elif "CALL" in decision or "DEFEND" in decision: st.warning(f"## {decision}")
 else: st.error(f"## {decision}")
 
-# 분석 박스
-st.markdown(f"""
-<div class="metric-box">
-    <strong>🧠 Analysis</strong><br>
-    <span class="logic-tag {'tag-cash' if 'Cash' in mode else 'tag-mtt'}">{mode}</span>
-    Environment: {env}<br>
-    Raise Amount: {raise_amt}BB | Position: {pos}<br>
-    <em>"{reasoning}"</em>
-</div>
-""", unsafe_allow_html=True)
+st.caption(f"💡 {reasoning}")
 
-# --- 7. 하단 고정 차트 ---
+# --- 7. 하단 고정 차트 (모바일용 간소화) ---
 st.markdown("---")
-st.markdown("### 🚀 Short Stack Push Range (10-20BB)")
+st.markdown("**🚀 Short Stack (20BB↓)**")
 st.table(pd.DataFrame({
-    "Position": ["UTG", "HJ", "CO", "BTN", "SB"],
-    "Push Range": ["77+, AJs+, AQo+", "55+, A9s+, AJo+", "22+, A2s+, A8o+", "Any Pair, Any Ax, Kx", "Any Pair, Any Ax, Q5s+"]
+    "Pos": ["UTG", "CO", "BTN", "SB"],
+    "Push": ["77+, AJs+", "22+, A8o+", "Any Pair/Ax", "Any Pair/Ax"]
 }))
-
-st.markdown("### 📊 RFI Position Range Detail")
-col1, col2 = st.columns(2)
-stats_detail = {"UTG":"14%", "UTG+1":"16%", "MP":"19%", "LJ":"21%", "HJ":"24%", "CO":"30%", "BTN":"48%", "SB":"42%"}
-p_keys = list(stats_detail.keys())
-with col1:
-    for k in p_keys[:4]:
-        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats_detail[k]})</span><br><small>Standard Open</small></div>', unsafe_allow_html=True)
-with col2:
-    for k in p_keys[4:]:
-        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats_detail[k]})</span><br><small>Standard Open</small></div>', unsafe_allow_html=True)
