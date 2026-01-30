@@ -4,7 +4,7 @@ import pandas as pd
 # 1. 앱 기본 설정
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
-# CSS: UI 디자인 고정 (변동 없음)
+# CSS: 디자인 및 가독성 (고정표 스타일 포함)
 st.markdown("""
     <style>
     /* 사이드바 스타일 */
@@ -45,7 +45,7 @@ st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 �
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
 st.caption("⚡ Advanced Logic + Fixed GTO Charts")
 
-# --- 2. 사이드바 (설정 UI 고정) ---
+# --- 2. 사이드바 (환경 설정만 남김) ---
 with st.sidebar:
     st.header("📸 Card Scanner")
     st.camera_input("Scan cards", label_visibility="collapsed")
@@ -67,14 +67,19 @@ with st.sidebar:
     st.metric(label="Effective Stack (유효 스택)", value=f"{eff_stack} BB")
     
     st.markdown("---")
-    st.header("⚙️ Setup")
-    pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
-    pos = st.selectbox("My Position", pos_list, index=6)
+    st.header("⚙️ Table Setup")
+    # 포지션 선택은 메인으로 이동했습니다.
     h_in = st.number_input("Players", 2, 9, 9)
 
-# --- 3. 상황 입력 ---
-st.markdown("### 1. Action Context")
-action = st.radio("Current Situation", ["Unopened (RFI)", "Facing Raise", "Facing All-in"], horizontal=True)
+# --- 3. 메인 화면 (플레이어 입력 영역) ---
+st.markdown("### 1. Position & Situation")
+
+# [수정] 포지션 선택을 메인으로 이동
+pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
+pos = st.selectbox("📍 Select My Position", pos_list, index=6)
+
+# 상황 선택
+action = st.radio("⚔️ Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing All-in"], horizontal=True)
 
 raise_amt = 0
 if action == "Facing Raise":
@@ -92,7 +97,7 @@ with c1: v1 = st.selectbox("Card 1", cards, key="v1")
 with c2: v2 = st.selectbox("Card 2", cards, index=1, key="v2")
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. DEEP LOGIC ENGINE (심화 로직) ---
+# --- 5. DEEP LOGIC ENGINE (심화 로직 유지) ---
 def advanced_logic(mode, pos, v1, v2, suit, act, hero_stack, eff_stack, amt, players):
     rank_map = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = rank_map[v1], rank_map[v2]
