@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 
-# 1. 앱 설정 (UI 및 후면 카메라 기본 설정 유지)
+# 1. 앱 설정
 st.set_page_config(page_title="JM HOLDEM LEGEND 03 V1", page_icon="🃏", layout="centered")
 
+# CSS: 디자인 및 가독성
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { background-color: #0e1117; border-right: 3px solid #ff4b4b; }
@@ -25,19 +26,21 @@ st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 �
 
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
 
-# --- 2. 사이드바 (설정 강조 및 후면 카메라) ---
+# --- 2. 사이드바 (설정) ---
 with st.sidebar:
     st.header("📸 Card Scanner")
     st.camera_input("Scan cards", label_visibility="collapsed")
     st.markdown("---")
     st.header("⚙️ Game Setup")
-    env = st.selectbox("Environment", ["Online (Standard GTO)", "Live Pub (Loose/Passive)", "Tournament (ICM/Survival)"])
-    handy = st.slider("Set Players", 2, 9, 6)
+    # 환경별 보정치 설정
+    env = st.selectbox("Environment", ["Online (Standard GTO)", "Live Pub (Loose/Deep)", "Tournament (ICM)"])
+    h_in = st.number_input("Handy (Players)", 2, 9, 6)
+    handy = st.slider("Set Players", 2, 9, int(h_in))
     
     st.markdown("---")
-    st.header("👤 Hero Strategy")
-    # 스타일 가중치를 GTO 빈도 조절용으로 활용
-    hero_style = st.select_slider("Range Intensity", options=["Super Tight", "Tight", "GTO Standard", "Aggressive", "Maniac"], value="GTO Standard")
+    st.header("👤 Hero Style")
+    # 스타일 가중치: GTO 기준점에서 얼마나 벗어날지 결정
+    hero_style = st.select_slider("Range Width", options=["Nits (Very Tight)", "Tight", "GTO Standard", "Loose", "Lag (Maniac)"], value="GTO Standard")
     
     st.markdown("---")
     st.header("💰 Stack Size")
@@ -47,7 +50,7 @@ with st.sidebar:
 # --- 3. 상황 및 포지션 ---
 st.markdown("### 1. Situation & Position")
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
-pos = st.selectbox("Position Selection", pos_list, index=6)
+pos = st.selectbox("Position", pos_list, index=6)
 action = st.radio("Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing All-in"], horizontal=True)
 
 st.markdown("---")
@@ -60,87 +63,128 @@ with c1: v1 = st.selectbox("Card 1", cards, key="v1")
 with c2: v2 = st.selectbox("Card 2", cards, index=1, key="v2")
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. 전세계 자료 통합 GTO 엔진 (정밀 재설계) ---
-def get_world_gto_logic(pos, v1, v2, suit, act, hero, stack, env, handy):
-    ranks = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
-    r1, r2 = ranks[v1], ranks[v2]
-    if r1 < r2: v1, v2 = v2, v1
+# --- 5. GLOBAL STANDARD GTO ENGINE (수학적 재설계) ---
+def get_standard_gto_strategy(pos, v1, v2, suit, act, hero, stack, env, handy):
+    # 1. 카드 파워 랭킹 시스템 (Rank Conversion)
+    rank_map = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
+    r1, r2 = rank_map[v1], rank_map[v2]
+    if r1 < r2: v1, v2, r1, r2 = v2, v1, r2, r1 # r1이 항상 높은 카드
     hand_key = f"{v1}{v2}"
     is_s = (suit == "s")
+    is_pair = (v1 == v2)
     
-    # 1. 3-BET/DEFENSE 프리미엄군 (절대 폴드 금지)
-    premium_high = ["AA", "KK", "QQ", "AK"]
-    premium_mid = ["JJ", "TT", "99", "AQs", "AJs", "KQs"]
+    # 2. 핸드 카테고리 분류 (GTO 티어 구분)
+    tier_S = ["AA", "KK", "QQ", "AK"] # 절대적 몬스터 (어떤 상황에서도 플레이)
+    tier_A = ["JJ", "TT", "AQs", "AJs", "KQs", "AQ"] # 강력한 프리미엄
+    tier_B = ["99", "88", "ATs", "KJs", "QJs", "JTs", "KQ"] # 준수한 플레이어블
     
-    # 2. 스타일 및 환경 가중치 (EV 계산 보정용)
-    # GTO 기준점 대비 상향/하향 조정
-    style_val = {"Super Tight": 5, "Tight": 2, "GTO Standard": 0, "Aggressive": -3, "Maniac": -6}[hero]
-    env_val = {"Online (Standard GTO)": 0, "Live Pub (Loose/Passive)": -2, "Tournament (ICM/Survival)": 3}[env]
-    # 숏핸디(6인 이하)일 때 레인지 자동 확장
-    handy_val = -3 if handy <= 6 else 0
+    # 3. 보정치 계산 (Adjustment Calculation)
+    # 스타일 보정: 값이 낮을수록 더 루즈해짐 (기준점 낮춤)
+    style_adj = {"Nits (Very Tight)": 3, "Tight": 1, "GTO Standard": 0, "Loose": -2, "Lag (Maniac)": -4}[hero]
+    # 환경 보정: Live Pub은 배당 콜을 위해 커트라인 하향(-), Tournament는 생존을 위해 상향(+)
+    env_adj = {"Online (Standard GTO)": 0, "Live Pub (Loose/Deep)": -2, "Tournament (ICM)": 2}[env]
+    # 인원수 보정: 사람이 적을수록(숏핸디) 공격적으로 변해야 함
+    handy_adj = -2 if handy <= 5 else 0
     
-    total_adj = style_val + env_val + handy_val
+    total_adj = style_adj + env_adj + handy_adj
 
-    # [상황 1:Facing Raise - 3-Bet/Defense 로직]
+    # --- [상황별 GTO 로직] ---
+
+    # A. Facing All-in (올인 직면)
+    if act == "Facing All-in":
+        # 1. 절대 방어 영역 (KK 폴드 방지)
+        if hand_key in ["AA", "KK"]: 
+            return "🔴 SNAP CALL", "GTO: 지구상에 이 핸드를 프리플랍에 죽이는 이론은 없습니다."
+        
+        # 2. 스택별 QQ/AK 처리
+        if hand_key in ["QQ", "AK"]:
+            if stack > 150 and "Tournament" in env: # 딥스택 토너먼트에서만 조심
+                return "⚔️ CALL / DECIDE", "딥스택에서는 상대 성향을 고려하세요. 하지만 대부분 콜입니다."
+            return "🔴 CALL", "표준 GTO 콜 레인지입니다."
+            
+        # 3. 숏스택(20BB 이하)일 때 콜 레인지 확장
+        if stack <= 20:
+            if hand_key in ["JJ", "TT", "99", "AQ", "AJ", "KQ"]: return "🟢 CALL", "숏스택 수학적 배당 콜입니다."
+            
+        return "🔵 FOLD", "상대 올인 레인지 대비 에퀴티 부족."
+
+    # B. Facing Raise (상대방 오픈 레이즈 시)
     if act == "Facing Raise":
-        if hand_key in premium_high:
-            return "🔥 3-BET (Value)", "GTO: 최상위 에퀴티 핸드입니다. 리레이즈로 주도권을 가져오세요."
-        if hand_key in premium_mid:
-            return "⚔️ 3-BET / CALL", "GTO: 강력한 방어 및 공격 핸드입니다. 폴드는 수익을 포기하는 결정입니다."
-        if is_s and r1 >= (12 + total_adj//3): # KJs, QJs 등
-            return "🟢 CALL", "GTO: 포스트플랍 실현 가능성이 높은 수딧 브로드웨이 콜 구간입니다."
-        if v1 == v2 and r1 >= (7 + total_adj//3): # 77+ 셋마이닝
-            return "🟢 CALL", "GTO: 세트 마이닝 및 배당 콜 구간입니다."
-        return "🔵 FOLD", "GTO: 현재 필드 강도 대비 핸드 에퀴티가 낮아 폴드가 정석입니다."
+        if hand_key in tier_S: return "🔥 3-BET (Value)", "GTO: 밸류를 뽑기 위해 리레이즈(3-Bet) 필수입니다."
+        if hand_key in tier_A: return "⚔️ 3-BET / CALL", "GTO: 방어하거나 공격해야 하는 필수 핸드입니다."
+        
+        # 포켓 페어 셋마이닝 (배당 콜)
+        if is_pair and r1 >= (6 + total_adj//2): # 66+, 77+ 등
+            return "🟢 CALL (Set Mine)", "포켓 페어는 셋마이닝 가치가 높습니다."
+            
+        # 수딧 브로드웨이/커넥터 (라이브 펍 보정)
+        if is_s and r1 >= (10 + total_adj//2): # KTs, QJs 등
+            return "🟢 CALL", "포스트플랍 잠재력이 높은 수딧 핸드입니다."
+            
+        return "🔵 FOLD", "레이즈에 콜하기에는 에퀴티가 부족합니다."
 
-    # [상황 2:Unopened (RFI) - 오픈 로직]
+    # C. Unopened (RFI) - 오픈 레이즈
     if act == "Unopened (RFI)":
-        if hand_key in premium_high or hand_key in premium_mid:
-            return "🔴 RAISE", "GTO: 모든 포지션에서 오픈 레이즈가 필수인 핸드입니다."
+        if hand_key in tier_S or hand_key in tier_A: 
+            return "🔴 RAISE", "전 포지션 GTO 오픈 핸드입니다."
         
-        # 포지션별 정밀 임계값 (GTO Solver 기반)
-        thresholds = {
-            "UTG": 13, "UTG+1": 12.5, "MP": 12, "LJ": 11.5, 
-            "HJ": 11, "CO": 10.5, "BTN": 9.5, "SB": 9.5
+        # 포지션별 오픈 기준점 (GTO Solver RFI Table 근사치)
+        # 숫자가 낮을수록(BTN) 기준점이 낮아져서 더 많은 핸드로 오픈함
+        pos_threshold = {
+            "UTG": 12.5, "UTG+1": 12.0, "MP": 11.5, "LJ": 11.0, 
+            "HJ": 10.5, "CO": 9.5, "BTN": 7.0, "SB": 8.0, "BB": 99
         }
-        base = thresholds.get(pos, 11)
         
-        # 수딧 핸드 보너스 및 스타일 가중치 적용
+        target = pos_threshold.get(pos, 12) + (total_adj * 0.5) # 보정치 적용
+        
+        # 1. 수딧 핸드 판단
         if is_s:
-            if r1 >= (base - 1 + total_adj/4): return "🟠 OPEN", f"GTO: {pos} 수딧 핸드 오픈 구간입니다."
-        else:
-            if r1 >= (base + 1 + total_adj/4): return "🟠 OPEN", f"GTO: {pos} 오프수딧 하이카드 오픈 구간입니다."
-        
-        if v1 == v2 and r1 >= (2 + total_adj/5): # 모든 페어 오픈 고려
-            return "🟠 OPEN", f"GTO: {pos} 포켓 페어 오픈 구간입니다."
+            # BTN/CO에서는 Ace, King, Queen 수딧 거의 다 오픈
+            if pos in ["BTN", "CO"] and r1 >= 10: return "🟠 OPEN", "GTO: 포지션 수딧 스틸"
+            # 일반적인 기준
+            if r1 >= target: return "🟠 OPEN", f"{env} 환경 최적 오픈"
+            # 수딧 커넥터 (98s, 87s 등) - 버튼/컷오프에서 허용
+            if pos in ["BTN", "CO", "HJ"] and r1 >= 5 and (r1 - r2) == 1: 
+                return "🟠 OPEN", "밸런싱을 위한 수딧 커넥터 오픈"
 
-    return "🔵 FOLD", "GTO: 수학적 기대값(EV)이 0 이하인 핸드입니다."
+        # 2. 오프수딧 판단 (기준점이 더 높음)
+        else:
+            if r1 >= (target + 1.5): return "🟠 OPEN", f"{pos} 오프수딧 오픈"
+
+        # 3. 포켓 페어
+        if is_pair:
+            # UTG는 77+, BTN은 22+ 등
+            pair_limit = {"UTG": 7, "MP": 6, "HJ": 5, "CO": 3, "BTN": 2, "SB": 2}.get(pos, 5)
+            if r1 >= (pair_limit + total_adj): return "🟠 OPEN", "GTO: 포켓 페어 오픈"
+
+    return "🔵 FOLD", "EV(기대값)가 마이너스인 구간입니다."
 
 # --- 6. 결과 출력 ---
 st.divider()
-res, why = get_world_gto_logic(pos, v1, v2, suit, action, hero_style, stack, env, handy)
-if "RAISE" in res or "3-BET" in res or "ALL-IN" in res: st.error(f"## {res}")
-elif "OPEN" in res or "CALL" in res or "⚔️" in res: st.warning(f"## {res}")
+res, why = get_standard_gto_strategy(pos, v1, v2, suit, action, hero_style, stack, env, handy)
+
+if "SNAP CALL" in res or "3-BET" in res or "RAISE" in res: st.error(f"## {res}")
+elif "OPEN" in res or "CALL" in res: st.warning(f"## {res}")
 else: st.info(f"## {res}")
-st.write(f"📊 **Engine Source:** Global GTO Solvers (Mixed Strategy Applied)")
+
+st.write(f"📊 **Engine:** World Standard GTO | **Mode:** {env}")
 st.write(f"💡 **Analysis:** {why}")
 
-# --- 7. 하단 차트 및 데이터 (GTO 표준 반영) ---
+# --- 7. 하단 차트 및 데이터 ---
 st.markdown("---")
-st.markdown("### 📊 GTO Standard Opening Range (%)")
+st.markdown("### 📊 GTO Standard Opening Frequency")
 col1, col2 = st.columns(2)
-# GTO 정석 수치
-gto_stats = {"UTG":"14%", "UTG+1":"16%", "MP":"19%", "LJ":"21%", "HJ":"24%", "CO":"30%", "BTN":"48%", "SB":"42%"}
-p_keys = list(gto_stats.keys())
+stats = {"UTG":"14%", "UTG+1":"16%", "MP":"19%", "LJ":"21%", "HJ":"24%", "CO":"30%", "BTN":"48% (Wide)", "SB":"42%"}
+p_keys = list(stats.keys())
 with col1:
     for k in p_keys[:4]:
-        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} (RFI {gto_stats[k]})</span><br><small>GTO Solver 기반 정석 오픈 빈도</small></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats[k]})</span><br><small>GTO 정석 빈도</small></div>', unsafe_allow_html=True)
 with col2:
     for k in p_keys[4:]:
-        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} (RFI {gto_stats[k]})</span><br><small>GTO Solver 기반 정석 오픈 빈도</small></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats[k]})</span><br><small>GTO 정석 빈도</small></div>', unsafe_allow_html=True)
 
-st.markdown("### 🚀 Short Stack Push Range (15BB Below)")
+st.markdown("### 🚀 Short Stack Push Range (GTO Nash Equilibrium)")
 st.table(pd.DataFrame({
     "Position": ["UTG", "HJ", "CO", "BTN", "SB"],
-    "Push Range": ["22+, A9s+, ATo+, KTs+", "22+, A2s+, A8o+, K9s+", "22+, Any Ax, K5s+", "Any Ax, Any Kx, Q5s+", "Any Ax, Any Kx, Any Qx"]
+    "Push (15BB)": ["77+, AJs+, AQo+", "55+, A9s+, AJo+", "22+, A2s+, A8o+", "Any Pair, Any Ax, Kx", "Any Pair, Any Ax, Q5s+"]
 }))
