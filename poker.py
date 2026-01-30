@@ -2,19 +2,32 @@ import streamlit as st
 import pandas as pd
 
 # 1. 앱 기본 설정
-st.set_page_config(page_title="JM LEGEND 03 (Hybrid)", page_icon="🛡️", layout="centered")
+st.set_page_config(page_title="JM LEGEND 03 (Sync Fixed)", page_icon="🛡️", layout="centered")
 
-# --- Session State 초기화 (슬라이더 <-> 입력창 동기화용) ---
-if 'pos_idx' not in st.session_state: st.session_state.pos_idx = 6 # BTN
-if 'raise_val' not in st.session_state: st.session_state.raise_val = 2.5
-if 'c1_idx' not in st.session_state: st.session_state.c1_idx = 0 # A
-if 'c2_idx' not in st.session_state: st.session_state.c2_idx = 1 # K
-
-# 데이터 정의
+# --- 데이터 정의 ---
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
-# CSS: 적녹색약 배려 & 모바일 가독성 & 하이브리드 레이아웃
+# --- Session State 초기화 (값 동기화의 핵심) ---
+if 'my_pos' not in st.session_state: st.session_state.my_pos = "BTN"
+if 'raise_amt' not in st.session_state: st.session_state.raise_amt = 2.5
+if 'c1' not in st.session_state: st.session_state.c1 = "A"
+if 'c2' not in st.session_state: st.session_state.c2 = "K"
+
+# --- 동기화 함수들 (Callbacks) ---
+def sync_pos_slider(): st.session_state.my_pos = st.session_state.pos_slider
+def sync_pos_box(): st.session_state.my_pos = st.session_state.pos_box
+
+def sync_raise_slider(): st.session_state.raise_amt = st.session_state.raise_slider
+def sync_raise_box(): st.session_state.raise_amt = st.session_state.raise_box
+
+def sync_c1_slider(): st.session_state.c1 = st.session_state.c1_slider
+def sync_c1_box(): st.session_state.c1 = st.session_state.c1_box
+
+def sync_c2_slider(): st.session_state.c2 = st.session_state.c2_slider
+def sync_c2_box(): st.session_state.c2 = st.session_state.c2_box
+
+# CSS: 적녹색약 배려 & 하이브리드 레이아웃
 st.markdown("""
     <style>
     /* 배경 및 사이드바 */
@@ -36,7 +49,6 @@ st.markdown("""
     
     /* 입력 위젯 스타일 조정 */
     div.stButton > button { width: 100%; height: 60px; font-weight: bold; font-size: 1.3em; border-radius: 12px; }
-    div[data-baseweb="select"] > div { font-weight: bold; }
     
     /* 하단 차트 */
     .chart-header { color: #D55E00; font-weight: bold; font-size: 1.2em; margin-top: 20px; }
@@ -48,8 +60,7 @@ st.markdown("""
 def show_manual():
     st.markdown("""
     ### ⚡ 하이브리드 입력 시스템
-    * **슬라이더 & 입력창 연동**: 슬라이더를 밀어도 되고, 입력창(▼)을 눌러 직접 골라도 됩니다. 둘은 항상 같이 움직입니다.
-    * **칸 표시**: 슬라이더 바에 위치가 대략적으로 표시되지만, 정확한 값은 옆의 입력창을 참고하세요.
+    * **동기화**: 슬라이더를 밀면 입력창이 바뀌고, 입력창을 바꾸면 슬라이더가 바뀝니다. 편한 것을 쓰세요.
     
     ### 🎨 색약 모드 (Color Safe)
     * **🟠 RAISE**: 공격 (주황)
@@ -60,7 +71,7 @@ def show_manual():
 # --- 메인 상단 ---
 st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라<br>그게 나락으로 가는 지름길이다"</div>', unsafe_allow_html=True)
 st.title("🛡️ JM LEGEND 03")
-st.caption("⚡ Slider + Direct Input Sync")
+st.caption("⚡ Perfect Sync Engine")
 
 # --- 2. 사이드바 (설정 고정) ---
 with st.sidebar:
@@ -92,91 +103,46 @@ with st.sidebar:
 st.markdown('<p class="big-font">📍 Position</p>', unsafe_allow_html=True)
 col_p1, col_p2 = st.columns([3, 1.2])
 
-def update_pos_slider():
-    st.session_state.pos_idx = pos_list.index(st.session_state.pos_box)
-def update_pos_box():
-    # 슬라이더 값은 session_state에 자동 반영됨
-    pass
-
 with col_p1:
-    # 슬라이더: options 리스트 사용
-    pos = st.select_slider(
-        "Pos Slider", 
-        options=pos_list, 
-        value=pos_list[st.session_state.pos_idx], 
-        key="pos_slider",
-        label_visibility="collapsed",
-        on_change=update_pos_slider
-    )
-    # 슬라이더 변경 시 pos_idx 업데이트 (위 on_change가 먼저 호출됨, 하지만 select_slider는 인덱스가 아닌 값을 리턴하므로 역추적 필요)
-    # *수정*: select_slider는 값을 리턴하므로, 값을 기준으로 box를 맞춰야 함.
-    # 단순화를 위해 위 콜백 로직 대신, 렌더링 직전에 값 동기화 수행
-    
+    st.select_slider("Pos Slider", options=pos_list, value=st.session_state.my_pos, 
+                     key="pos_slider", label_visibility="collapsed", on_change=sync_pos_slider)
 with col_p2:
-    # 직접 입력창
-    pos_box = st.selectbox(
-        "Pos Box", 
-        options=pos_list, 
-        index=pos_list.index(pos), # 슬라이더 값을 따름
-        key="pos_box", 
-        label_visibility="collapsed"
-    )
-    # 입력창이 바뀌면 -> 슬라이더도 바뀌어야 함. 
-    # Streamlit 특성상 rerun 되면서 위 select_slider의 value가 pos_box 값이 됨.
+    st.selectbox("Pos Box", options=pos_list, index=pos_list.index(st.session_state.my_pos), 
+                 key="pos_box", label_visibility="collapsed", on_change=sync_pos_box)
 
-# [2] Action: Radio (유지)
+# [2] Action
 st.markdown('<p class="big-font">⚔️ Action</p>', unsafe_allow_html=True)
 action = st.radio("Act", ["Unopened", "Facing Raise", "Facing All-in"], horizontal=True, label_visibility="collapsed")
 
-raise_amt = 0.0
+final_raise_amt = 0.0
+
 if action == "Facing Raise":
     st.markdown("**상대 레이즈 (BB)**")
     col_r1, col_r2 = st.columns([3, 1.2])
     
-    # 동기화 로직: Number Input이 Master, Slider가 Slave 역할 겸용
-    if 'raise_val' not in st.session_state: st.session_state.raise_val = 2.5
-    
-    with col_r2:
-        num_in = st.number_input("BB Input", 2.0, 100.0, st.session_state.raise_val, step=0.5, label_visibility="collapsed", key="raise_box")
-    
+    # 레이즈 금액 동기화
     with col_r1:
-        # 슬라이더 범위 내에 있으면 슬라이더 값 업데이트
-        slider_val = num_in if 2.0 <= num_in <= 15.0 else (15.0 if num_in > 15.0 else 2.0)
-        raise_slider = st.slider("BB Slider", 2.0, 15.0, slider_val, step=0.5, label_visibility="collapsed", key="raise_slider")
+        # 슬라이더는 2.0 ~ 15.0 범위만 담당 (그 외 값은 입력창에서 처리해도 에러 안나게 max 값 조정)
+        slider_val = st.session_state.raise_amt if 2.0 <= st.session_state.raise_amt <= 15.0 else 2.0
+        st.slider("BB Slider", 2.0, 15.0, slider_val, 0.5, key="raise_slider", label_visibility="collapsed", on_change=sync_raise_slider)
+    with col_r2:
+        st.number_input("BB Input", 2.0, 100.0, st.session_state.raise_amt, 0.5, key="raise_box", label_visibility="collapsed", on_change=sync_raise_box)
     
-    # 값 결정 (슬라이더가 움직였으면 슬라이더 값, 아니면 입력창 값)
-    # 복잡성을 줄이기 위해: 사용자가 마지막으로 건드린 값을 사용해야 하지만,
-    # 여기서는 '입력창'의 값을 최종값으로 쓰고 슬라이더는 보조 도구로 씁니다.
-    # 단, 슬라이더를 움직였을 때 입력창을 갱신하려면 session state 콜백이 필요합니다.
-    
-    # 간단 해결책: 슬라이더 값을 최종 raise_amt로 쓰고, 입력창은 그냥 둠? 아니요 사용자가 원한건 동기화입니다.
-    # -> raise_box의 on_change에서 raise_slider session state 업데이트
-    # -> raise_slider의 on_change에서 raise_box session state 업데이트
-    # 하지만 복잡해지므로, 이번 턴의 raise_amt는 raise_slider 값으로 하되, 
-    # raise_slider 값이 raise_box와 다르면 raise_box를 업데이트하는 방식(Rerun)을 씁니다.
-    
-    if raise_slider != st.session_state.raise_val:
-        st.session_state.raise_val = raise_slider
-        st.rerun() # 슬라이더 움직이면 재실행해서 입력창 업데이트
-    elif num_in != st.session_state.raise_val:
-        st.session_state.raise_val = num_in
-        st.rerun() # 입력창 바꾸면 재실행해서 슬라이더 업데이트
-
-    raise_amt = st.session_state.raise_val
-    if raise_amt >= 6.0: st.caption("⚠️ Big Raise (6BB+)")
+    final_raise_amt = st.session_state.raise_amt
+    if final_raise_amt >= 6.0: st.caption("⚠️ Big Raise (6BB+)")
 
 elif action == "Facing All-in":
     st.markdown("**상대 올인 (BB)**")
     max_val = float(villain_stack)
     col_a1, col_a2 = st.columns([3, 1.2])
+    
+    # 올인은 슬라이더 동기화가 복잡하므로 단순화 (입력창 우선)
     with col_a2:
         ai_in = st.number_input("Allin Input", 1.0, 1000.0, max_val/2, label_visibility="collapsed")
     with col_a1:
-        # 올인 슬라이더는 대략적인 값
-        slider_max = max_val if max_val > 0 else 100.0
-        ai_slider = st.slider("Allin Slider", 1.0, slider_max, ai_in, label_visibility="collapsed")
-    
-    raise_amt = ai_in if ai_in != (max_val/2) else ai_slider # 간이 동기화
+        st.slider("Allin Slider", 1.0, max_val if max_val > 1.0 else 100.0, ai_in, label_visibility="collapsed", disabled=True)
+        st.caption("※ 올인은 입력창을 이용하세요")
+    final_raise_amt = ai_in
 
 st.divider()
 
@@ -184,39 +150,18 @@ st.divider()
 st.markdown('<p class="big-font">🃏 My Hand</p>', unsafe_allow_html=True)
 c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
 
-# Card 1 Sync
 with c1_col:
     st.caption("Card 1")
-    # 입력창 (위)
-    c1_box = st.selectbox("C1 Box", cards, index=cards.index(st.session_state.get('c1_val', 'A')), label_visibility="collapsed", key="c1_box")
-    # 슬라이더 (아래)
-    c1_slider = st.select_slider("C1 Slider", cards, value=c1_box, label_visibility="collapsed", key="c1_slider")
-    # 값 동기화 확인
-    if c1_box != st.session_state.get('c1_val', 'A'):
-        st.session_state.c1_val = c1_box
-        st.rerun()
-    elif c1_slider != st.session_state.get('c1_val', 'A'):
-        st.session_state.c1_val = c1_slider
-        st.rerun()
-    v1 = st.session_state.c1_val
+    st.selectbox("C1 Box", cards, index=cards.index(st.session_state.c1), key="c1_box", label_visibility="collapsed", on_change=sync_c1_box)
+    st.select_slider("C1 Slider", cards, value=st.session_state.c1, key="c1_slider", label_visibility="collapsed", on_change=sync_c1_slider)
 
-# Card 2 Sync
 with c2_col:
     st.caption("Card 2")
-    c2_box = st.selectbox("C2 Box", cards, index=cards.index(st.session_state.get('c2_val', 'K')), label_visibility="collapsed", key="c2_box")
-    c2_slider = st.select_slider("C2 Slider", cards, value=c2_box, label_visibility="collapsed", key="c2_slider")
-    
-    if c2_box != st.session_state.get('c2_val', 'K'):
-        st.session_state.c2_val = c2_box
-        st.rerun()
-    elif c2_slider != st.session_state.get('c2_val', 'K'):
-        st.session_state.c2_val = c2_slider
-        st.rerun()
-    v2 = st.session_state.c2_val
+    st.selectbox("C2 Box", cards, index=cards.index(st.session_state.c2), key="c2_box", label_visibility="collapsed", on_change=sync_c2_box)
+    st.select_slider("C2 Slider", cards, value=st.session_state.c2, key="c2_slider", label_visibility="collapsed", on_change=sync_c2_slider)
 
 with s_col:
     st.caption("Suit")
-    # 공간 절약을 위해 Radio 유지
     suit_select = st.radio("S", ["s", "o"], horizontal=True, label_visibility="collapsed")
     suit = "s" if suit_select == "s" else "o"
 
@@ -283,8 +228,7 @@ def calculate_logic(mode, env, pos, v1, v2, suit, act, hero_stack, eff_stack, am
 
 # --- 6. 결과 출력 ---
 st.divider()
-# 마지막 선택된 값을 로직에 전달
-action_type, msg = calculate_logic(mode, env, pos_box, v1, v2, suit, action, my_stack, eff_stack, raise_amt, int(total_entries))
+action_type, msg = calculate_logic(mode, env, st.session_state.my_pos, st.session_state.c1, st.session_state.c2, suit, action, my_stack, eff_stack, final_raise_amt, int(total_entries))
 
 if action_type == "RAISE":
     st.markdown(f'<div class="res-box-raise">{msg}</div>', unsafe_allow_html=True)
