@@ -39,16 +39,57 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- [기능 추가] 사용설명서 팝업 함수 ---
+@st.dialog("📖 JM HOLDEM LEGEND 03 V1 매뉴얼")
+def show_manual():
+    st.markdown("""
+    ### 1. 🛡️ Mental Guard (핵심 철학)
+    > **"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"**
+    
+    이 앱은 단순한 계산기가 아니라, **CBJ님의 우승 마인드**를 유지하는 멘탈 가드 시스템입니다. 자만심을 버리고 기계적인 판단을 내리세요.
+
+    ---
+    ### 2. 🏆 Game Mode (모드별 전략)
+    **🔴 Cash Game (Deep Stack)**
+    * **목표**: 빅이닝(Big Inning) & 내재 배당 극대화
+    * **핵심**: 셋마이닝, 수딧 커넥터 콜, 3-Bet 위주 운영 (레이크 방어)
+    
+    **🔵 Tournament (Survival)**
+    * **목표**: 생존(One Life) & 칩 가치(ICM) 보존
+    * **핵심**: 숏스택(15BB↓) 푸쉬, 앤티 스틸, 리스크 관리(코인플립 회피)
+
+    ---
+    ### 3. ⚙️ 입력 가이드
+    1.  **Effective Stack (유효 스택)**: 내 스택과 상대 스택 중 **더 적은 쪽**을 기준으로 전략을 계산합니다.
+    2.  **Villain Info**: 상대가 올인했을 때, 내 스택 대비 부담(%)을 계산하여 **배당 콜(Snap Call)** 여부를 알려줍니다.
+    3.  **Position**: BTN(버튼), SB, BB 등 포지션을 정확히 선택해야 GTO 차트가 작동합니다.
+
+    ---
+    ### 4. 📊 결과 해석
+    * **🔴 RAISE / SNAP CALL**: GTO 필수 액션. 무조건 실행.
+    * **🟠 OPEN / CALL**: 수익성 있는 구간. 실행 권장.
+    * **🔵 FOLD**: 수학적으로 손해. 과감히 포기.
+    
+    ---
+    *Developed by JM Holdem Team*
+    """)
+
 # --- 메인 상단 CBJ 명언 ---
 st.markdown('<div class="quote-box">"한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"<br><small style="color: #ccc;">- 더홀릭 우승 경험자 CBJ -</small></div>', unsafe_allow_html=True)
 
 st.title("🛡️ JM HOLDEM LEGEND 03 V1")
 st.caption("⚡ Advanced Logic + Fixed GTO Charts")
 
-# --- 2. 사이드바 (환경 설정만 남김) ---
+# --- 2. 사이드바 (설명서 버튼 추가됨) ---
 with st.sidebar:
     st.header("📸 Card Scanner")
     st.camera_input("Scan cards", label_visibility="collapsed")
+    st.markdown("---")
+    
+    # [추가] 사용설명서 버튼
+    if st.button("📖 사용설명서 (Manual)", use_container_width=True):
+        show_manual()
+        
     st.markdown("---")
     
     st.header("🏆 Game Mode Strategy")
@@ -68,17 +109,14 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("⚙️ Table Setup")
-    # 포지션 선택은 메인으로 이동했습니다.
     h_in = st.number_input("Players", 2, 9, 9)
 
 # --- 3. 메인 화면 (플레이어 입력 영역) ---
 st.markdown("### 1. Position & Situation")
 
-# [수정] 포지션 선택을 메인으로 이동
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
 pos = st.selectbox("📍 Select My Position", pos_list, index=6)
 
-# 상황 선택
 action = st.radio("⚔️ Opponent Action", ["Unopened (RFI)", "Facing Raise", "Facing All-in"], horizontal=True)
 
 raise_amt = 0
@@ -97,7 +135,7 @@ with c1: v1 = st.selectbox("Card 1", cards, key="v1")
 with c2: v2 = st.selectbox("Card 2", cards, index=1, key="v2")
 suit = st.radio("Suit", ["s", "o"], horizontal=True)
 
-# --- 5. DEEP LOGIC ENGINE (심화 로직 유지) ---
+# --- 5. DEEP LOGIC ENGINE ---
 def advanced_logic(mode, pos, v1, v2, suit, act, hero_stack, eff_stack, amt, players):
     rank_map = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = rank_map[v1], rank_map[v2]
@@ -114,12 +152,12 @@ def advanced_logic(mode, pos, v1, v2, suit, act, hero_stack, eff_stack, amt, pla
 
     # [LOGIC A] CASH GAME
     if "Cash" in mode:
-        if act == "Facing Raise" and is_pair and r1 < 10: # 셋마이닝
+        if act == "Facing Raise" and is_pair and r1 < 10: 
             call_cost = amt
             implied_odds = eff_stack / call_cost
             if implied_odds >= 20: return "🟢 CALL (Set Mine)", f"배당 {implied_odds:.1f}배 충족. 셋 맞추러 갑니다."
             else: return "🔵 FOLD", "배당 부족. 못 먹습니다."
-        if act == "Facing Raise" and is_s and (r1 - r2 == 1) and r1 < 12: # 수딧 커넥터
+        if act == "Facing Raise" and is_s and (r1 - r2 == 1) and r1 < 12:
             if pos in ["BTN", "CO"]: return "🟢 CALL", "IP에서 딥스택 활용."
             return "🔵 FOLD", "아웃포지션 투기 금지."
 
@@ -127,14 +165,12 @@ def advanced_logic(mode, pos, v1, v2, suit, act, hero_stack, eff_stack, amt, pla
     else:
         is_risk_life = (hero_stack < amt) or (act == "Facing All-in" and hero_stack <= eff_stack)
         if act == "Facing All-in":
-            # 칩 깡패 모드 vs 생존 모드
-            if is_risk_life: # 지면 탈락
+            if is_risk_life: 
                 if hand_str in ["JJ", "AQs"]: return "⚔️ CALL", "탈락 감수하고 승부."
                 if hand_str in ["TT", "99", "88"]: return "🔵 TIGHT FOLD", "목숨이 하나입니다. 코인플립 회피."
-            else: # 내가 칩이 더 많음 (Bully)
+            else: 
                 if hand_str in ["JJ", "TT", "99", "AQ"]: return "🟢 CALL", "상대 탈락 유도 (Chip Bully)."
         
-        # 숏스택 잼 (15BB 이하)
         if hero_stack <= 15 and act == "Unopened (RFI)":
             if is_pair or r1 >= 10 or (is_s and r1 >= 8): return "🚀 JAM (ALL-IN)", "15BB 이하: 앉아서 죽지 말고 승부."
     
@@ -154,16 +190,12 @@ def advanced_logic(mode, pos, v1, v2, suit, act, hero_stack, eff_stack, amt, pla
 
 # --- 6. 실행 및 출력 ---
 st.divider()
-
-# 로직 실행
 decision, reasoning = advanced_logic(mode, pos, v1, v2, suit, action, my_stack, eff_stack, raise_amt, int(h_in))
 
-# 스타일링 출력
 if "FOLD" in decision: st.info(f"## {decision}")
 elif "CALL" in decision or "DEFEND" in decision: st.warning(f"## {decision}")
 else: st.error(f"## {decision}")
 
-# 심화 분석 박스
 st.markdown(f"""
 <div class="metric-box">
     <strong>🧠 Deep Analysis</strong><br>
@@ -173,9 +205,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- 7. 하단 고정 차트 (무조건 표시) ---
+# --- 7. 하단 고정 차트 ---
 st.markdown("---")
-# [1] 숏스택 올인표
 st.markdown("### 🚀 Short Stack Push Range (10-20BB)")
 st.caption("※ 모드와 상관없이 숏스택(20BB↓) 상황 발생 시 참고하세요.")
 st.table(pd.DataFrame({
@@ -183,12 +214,10 @@ st.table(pd.DataFrame({
     "Push Range": ["77+, AJs+, AQo+", "55+, A9s+, AJo+", "22+, A2s+, A8o+", "Any Pair, Any Ax, Kx", "Any Pair, Any Ax, Q5s+"]
 }))
 
-# [2] 핸드레인지 상세표 (2단)
 st.markdown("### 📊 RFI Position Range Detail")
 col1, col2 = st.columns(2)
 stats_detail = {"UTG":"14%", "UTG+1":"16%", "MP":"19%", "LJ":"21%", "HJ":"24%", "CO":"30%", "BTN":"48%", "SB":"42%"}
 p_keys = list(stats_detail.keys())
-
 with col1:
     for k in p_keys[:4]:
         st.markdown(f'<div class="card-detail"><span class="pos-title">{k} ({stats_detail[k]})</span><br><small>Standard Open</small></div>', unsafe_allow_html=True)
