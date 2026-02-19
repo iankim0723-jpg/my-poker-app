@@ -35,36 +35,35 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- [수정됨] 핸드레인지 순위표 팝업 (사용자 이미지 연동) ---
+# --- 핸드레인지 순위표 팝업 (사용자 이미지 연동) ---
 @st.dialog("🏆 텍사스 홀덤 프리플랍 핸드 순위 (1~169위)")
 def show_hand_rankings():
     st.markdown("요청하신 **전체 169개 핸드 순위표**입니다.")
     st.caption("🟨 포켓(Pocket) | 🟥 수딧(Suited) | 🟦 오프수딧(Off suit)")
     
-    # 1. 이미지 파일이 있으면 이미지 렌더링
+    # 이미지 파일이 있으면 렌더링
     image_path = "핸드레이지 표.jpg"
     if os.path.exists(image_path):
         st.image(image_path, use_container_width=True)
     else:
         st.warning(f"⚠️ 이미지를 찾을 수 없습니다. '{image_path}' 파일을 이 파이썬 파일과 같은 폴더에 넣어주세요.")
-    
-    # 2. 혹시 모를 상황을 위한 텍스트 DB 백업 (Top 50)
-    st.markdown("### 🔥 Top 50 텍스트 요약")
-    df = pd.DataFrame({
-        "순위": ["1~10위", "11~20위", "21~30위", "31~40위", "41~50위"],
-        "핸드 리스트": [
-            "AA, KK, QQ, AKs, JJ, AQs, KQs, AJs, KJs, TT",
-            "AKo, ATs, QJs, KTs, QTs, JTs, 99, AQo, A9s, KQo",
-            "88, K9s, T9s, A8s, Q9s, J9s, AJo, A5s, 77, A7s",
-            "KJo, A4s, A3s, A6s, QJo, 66, K8s, T8s, A2s, 98s",
-            "J8s, ATo, Q8s, K7s, KTo, 55, JTo, 87s, QTo, 44"
-        ]
-    })
-    st.table(df)
+        
+        # 이미지가 없을 때를 대비한 텍스트 데이터베이스
+        st.markdown("### 🔥 Top 50 텍스트 요약")
+        df = pd.DataFrame({
+            "순위": ["1~10위", "11~20위", "21~30위", "31~40위", "41~50위"],
+            "핸드 리스트": [
+                "AA, KK, QQ, AKs, JJ, AQs, KQs, AJs, KJs, TT",
+                "AKo, ATs, QJs, KTs, QTs, JTs, 99, AQo, A9s, KQo",
+                "88, K9s, T9s, A8s, Q9s, J9s, AJo, A5s, 77, A7s",
+                "KJo, A4s, A3s, A6s, QJo, 66, K8s, T8s, A2s, 98s",
+                "J8s, ATo, Q8s, K7s, KTo, 55, JTo, 87s, QTo, 44"
+            ]
+        })
+        st.table(df)
 
 # --- 2. 사이드바 (환경 및 스택 설정) ---
 with st.sidebar:
-    # 핸드 순위표 팝업 버튼
     if st.button("🏆 핸드 순위표 (Hand Rankings)", use_container_width=True):
         show_hand_rankings()
         
@@ -148,26 +147,183 @@ with c2_col:
     v2 = st.selectbox("C2 Box", cards, index=cards.index(v2_slider), label_visibility="collapsed")
 with s_col:
     suit_radio = st.radio("S", ["s (수딧)", "o (오프)"], horizontal=True, label_visibility="collapsed")
-    suit = "s" if "s" in suit_radio else "o"
+    if "s" in suit_radio:
+        suit = "s"
+    else:
+        suit = "o"
 
 # --- 4. MASTER AI EQUITY & ODDS ENGINE ---
 def calculate_approx_equity(r1, r2, is_pair, is_s):
     base = (r1 + r2) * 1.5
-    if is_pair: base = 50 + (r1 * 2.5) 
-    if is_s: base += 5
-    if r1 - r2 == 1: base += 3
+    if is_pair:
+        base = 50 + (r1 * 2.5) 
+    if is_s:
+        base += 5
+    if r1 - r2 == 1:
+        base += 3
     return min(85.0, max(25.0, base))
 
 def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt):
     rk = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = rk[v1], rk[v2]
-    if r1 < r2: v1, v2, r1, r2 = v2, v1, r2, r1
+    
+    if r1 < r2:
+        v1, v2 = v2, v1
+        r1, r2 = r2, r1
+        
     is_pair = (v1 == v2)
     is_s = (suit == "s")
-    hand = f"{v1}{v2}{suit}" if not is_pair else f"{v1}{v2}"
+    
+    if is_pair:
+        hand = f"{v1}{v2}"
+    else:
+        hand = f"{v1}{v2}{suit}"
 
     equity = calculate_approx_equity(r1, r2, is_pair, is_s)
     
     env_modifier = 0
     if "Live Pub" in env:
+        env_modifier = -5
+    elif "Competition" in env:
+        env_modifier = 5
 
+    analysis = []
+    decision = "FOLD"
+    
+    if act == "Unopened":
+        base_req = 55
+        if pos in ["MP", "LJ"]:
+            base_req = 50
+        elif pos in ["HJ", "CO"]:
+            base_req = 45
+        elif pos in ["BTN", "SB"]:
+            base_req = 40
+        
+        req_equity = base_req + env_modifier
+        analysis.append(f"이 핸드의 추정 승률(Equity)은 <span class='highlight-stat'>{equity:.1f}%</span> 입니다.")
+        
+        if h_stack <= 15:
+            if equity >= 48:
+                decision = "RAISE"
+                analysis.append(f"스택이 15BB 이하이므로, 오픈 대신 <b>올인(Push)</b>을 통해 폴드 에퀴티를 극대화해야 합니다.")
+            else:
+                decision = "FOLD"
+                analysis.append("숏스택 상황에서 승부하기엔 에퀴티가 낮아 칩을 보존(Fold)해야 합니다.")
+        elif equity >= req_equity:
+            decision = "RAISE"
+            analysis.append(f"현재 포지션({pos})의 오픈 최소 요구치({req_equity}%)를 상회하므로 수익성 있는 <b>레이즈(Raise)</b> 구간입니다.")
+        else:
+            decision = "FOLD"
+            analysis.append(f"현재 포지션({pos})에서 먼저 팟을 열기에는 너무 약한 핸드(Fold)입니다.")
+
+    elif act == "Facing All-in":
+        call_amt = amt
+        pot_size = amt + 1.5 
+        pot_odds = (call_amt / (pot_size + call_amt)) * 100
+        
+        analysis.append(f"내 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 요구 팟 오즈: <span class='highlight-stat'>{pot_odds:.1f}%</span>")
+        
+        call_margin = 2
+        if "Tournament" in mode:
+            call_margin = 7 
+        
+        if equity >= (pot_odds + call_margin):
+            decision = "CALL"
+            analysis.append(f"내 핸드의 승률({equity:.1f}%)이 요구 배당({pot_odds:.1f}%)보다 높으므로 수학적으로 <b>장기적 수익(+EV)이 나는 콜(Call)</b>입니다.")
+        else:
+            decision = "FOLD"
+            analysis.append(f"승률보다 요구 배당이 높아 <b>손해(-EV)를 보는 구간</b>입니다. 폴드하십시오.")
+            if "Tournament" in mode:
+                analysis.append("특히 토너먼트는 목숨(ICM)이 걸려있으므로 확실한 우위가 아니면 피해야 합니다.")
+
+    elif act == "Facing Raise":
+        if hand in ["AA", "KK", "QQ", "AKs", "AKo"]:
+            decision = "RAISE"
+            analysis.append("최상위 프리미엄 핸드입니다. 무조건 <b>3-Bet(리레이즈)</b>을 통해 팟을 키우고 상대의 밸류를 뽑아내야 합니다.")
+        else:
+            def_req = 48 + env_modifier
+            if pos == "BB":
+                def_req -= 8 
+            
+            if amt >= 6.0: 
+                def_req += 15 
+                analysis.append(f"상대가 {amt}BB의 큰 레이즈를 했습니다. 매우 강력한 레인지로 압축해야 합니다.")
+                
+            analysis.append(f"현재 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 방어 컷오프: <span class='highlight-stat'>{def_req:.1f}%</span>")
+            
+            if equity >= def_req + 10:
+                decision = "RAISE"
+                analysis.append("상대의 레이즈 레인지를 압도합니다. 주도권을 뺏는 <b>3-Bet(레이즈)</b>이 정석입니다.")
+            elif equity >= def_req:
+                decision = "CALL"
+                if "Live Pub" in env and is_s:
+                    analysis.append("라이브펍 특성상 멀티웨이 팟이 자주 나오므로 수딧/커넥터 류의 <b>배당 콜(Call)</b>이 매우 유리합니다.")
+                elif "Cash" in mode and is_pair and r1 < 10 and (e_stack/amt) >= 20:
+                    analysis.append("캐시게임 딥스택 <b>셋마이닝(Set Mining)</b> 조건이 성립합니다. 콜을 받고 셋을 맞추러 갑니다.")
+                else:
+                    analysis.append("적절한 에퀴티를 보유하여 <b>방어(Call)</b> 후 포스트플랍 운영을 추천합니다.")
+            else:
+                decision = "FOLD"
+                analysis.append("상대의 레이즈에 도미네잇(Dominated) 당할 확률이 높습니다. <b>미련 없이 폴드(Fold)</b>하세요.")
+
+    return decision, "<br>".join(analysis)
+
+# --- 5. 결과 출력 ---
+decision, reason_html = run_master_analysis(mode, env, final_pos, v1, v2, suit, action, my_stack, eff_stack, final_amt)
+
+st.divider()
+if decision == "RAISE":
+    st.markdown(f'<div class="res-box-raise">{decision}</div>', unsafe_allow_html=True)
+elif decision == "CALL":
+    st.markdown(f'<div class="res-box-call">{decision}</div>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<div class="res-box-fold">{decision}</div>', unsafe_allow_html=True)
+
+# 💡 상세 분석 패널
+st.markdown(f"""
+<div class="ai-panel">
+    <div class="ai-title">🤖 AI Agent Analysis Report</div>
+    <div class="ai-text">{reason_html}</div>
+</div>
+""", unsafe_allow_html=True)
+
+# --- 6. 하단 GTO 고정 차트 ---
+st.markdown("---")
+st.markdown('<p class="chart-header">🚀 15BB Nash Equilibrium (Short Stack Push)</p>', unsafe_allow_html=True)
+st.caption("※ 숏스택(소액 BB 소유) 시 포지션별 완벽한 올인 레인지입니다.")
+st.table(pd.DataFrame({
+    "Position": ["UTG / EP", "MP / HJ", "CO", "BTN", "SB"],
+    "All-in Range": [
+        "22+, A2s+, K8s+, Q9s+, J9s+, T9s, A8o+, KTo+, QJo",
+        "22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, A5o+, KTo+, QTo+",
+        "22+, A2s+, K2s+, Q5s+, J7s+, T7s+, 97s+, A2o+, K8o+, Q9o+",
+        "22+, A2s+, K2s+, Q2s+, J2s+, T4s+, 95s+, 84s+, A2o+, K2o+",
+        "Any Pair, Any Suited Ax/Kx, Q2s+, J2s+, Any Off-suit Ax/Kx"
+    ]
+}))
+
+st.markdown('<p class="chart-header">📊 100BB GTO RFI (Standard Range)</p>', unsafe_allow_html=True)
+st.caption("※ 정상 스택 포지션별 정석 오픈(Raise First In) 레인지입니다.")
+tab1, tab2, tab3 = st.tabs(["Early (UTG/MP)", "Late (CO/BTN)", "Blinds (SB)"])
+
+with tab1:
+    st.table(pd.DataFrame({
+        "Pos": ["UTG", "MP"],
+        "Pairs": ["77+", "55+"],
+        "Suited": ["ATs+, KTs+, QTs+, JTs", "A9s+, K9s+, Q9s+, J9s"],
+        "Off-suit": ["AQo+", "AJo+, KQo"]
+    }))
+with tab2:
+    st.table(pd.DataFrame({
+        "Pos": ["CO", "BTN"],
+        "Pairs": ["22+", "22+"],
+        "Suited": ["A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+", "A2s+, K2s+, Q2s+, J5s+, T6s+, 96s+"],
+        "Off-suit": ["ATo+, KTo+, QJo", "A2o+, K8o+, Q9o+, J9o+, T9o"]
+    }))
+with tab3:
+    st.table(pd.DataFrame({
+        "Pos": ["SB"],
+        "Pairs": ["22+"],
+        "Suited": ["A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+"],
+        "Off-suit": ["A9o+, KTo+, QTo+, JTo"]
+    }))
