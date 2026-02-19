@@ -8,7 +8,6 @@ st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", l
 # --- 방문자 카운트 로직 ---
 counter_file = "visitor_count.txt"
 
-# 세션에 'visited' 기록이 없으면(새로운 접속이면) 카운트 증가
 if 'visited' not in st.session_state:
     st.session_state.visited = True
     if os.path.exists(counter_file):
@@ -21,12 +20,10 @@ if 'visited' not in st.session_state:
         count = 0
     
     count += 1
-    # 증가된 카운트 저장
     with open(counter_file, "w") as f:
         f.write(str(count))
     st.session_state.v_count = count
 else:
-    # 이미 접속한 유저면 숫자만 읽어옴
     if os.path.exists(counter_file):
         with open(counter_file, "r") as f:
             try:
@@ -46,7 +43,9 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #111; border-right: 3px solid #D55E00; }
     .quote-box { background-color: #222; color: #fff; padding: 10px; border-radius: 8px; border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
     .quote-author { color: #D55E00; font-size: 0.8em; margin-top: 5px; display: block; }
-    .big-font { font-size: 1.3em; font-weight: 900; color: #fff; margin-top: 15px; margin-bottom: 5px; }
+    
+    /* 🚨 [수정됨] 흰색 바탕에 가장 대조되는 검정색(#111)으로 타이틀 글씨 색상 변경 */
+    .big-font { font-size: 1.3em; font-weight: 900; color: #111; margin-top: 15px; margin-bottom: 5px; }
     
     .res-box-raise { background-color: #D55E00; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-call { background-color: #0072B2; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
@@ -65,13 +64,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 핸드레인지 순위표 팝업 (이미지 확장자 수정됨: .png) ---
+# --- 핸드레인지 순위표 팝업 ---
 @st.dialog("🏆 텍사스 홀덤 프리플랍 핸드 순위 (1~169위)")
 def show_hand_rankings():
     st.markdown("요청하신 **전체 169개 핸드 순위표**입니다.")
     st.caption("🟨 포켓(Pocket) | 🟥 수딧(Suited) | 🟦 오프수딧(Off suit)")
     
-    # [수정] 이미지 파일명을 깃허브에 올라간 .png로 변경
     image_path = "핸드레이지 표.png"
     if os.path.exists(image_path):
         st.image(image_path, use_container_width=True)
@@ -120,7 +118,6 @@ with st.sidebar:
     eff_stack = min(my_stack, villain_stack)
     st.metric("Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩")
 
-    # 사이드바 하단 방문자 카운터 UI
     st.markdown("---")
     st.markdown(f"""
     <div style='text-align: center; padding: 15px; background-color: #1e1e1e; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;'>
@@ -139,7 +136,7 @@ st.markdown("""
 
 st.title("🛡️ JM LEGEND 03")
 
-# [1] Position (Hybrid) - [수정됨] "나의 포지션"으로 라벨 명확화
+# [1] Position (Hybrid)
 st.markdown('<p class="big-font">📍 나의 포지션 (My Position)</p>', unsafe_allow_html=True)
 c_p1, c_p2 = st.columns([3, 1.2])
 with c_p1:
