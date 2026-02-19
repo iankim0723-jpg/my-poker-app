@@ -16,7 +16,8 @@ if 'c1_slider' not in st.session_state: st.session_state.c1_slider = "A"
 if 'c1_box' not in st.session_state: st.session_state.c1_box = "A"
 if 'c2_slider' not in st.session_state: st.session_state.c2_slider = "K"
 if 'c2_box' not in st.session_state: st.session_state.c2_box = "K"
-if 'villain_stack_input' not in st.session_state: st.session_state.villain_stack_input = 50.0
+# [수정됨] 단일 시작 스택으로 세션 상태 통합
+if 'start_stack_input' not in st.session_state: st.session_state.start_stack_input = 50.0
 
 def sync_pos_s2b(): st.session_state.pos_box = st.session_state.pos_slider
 def sync_pos_b2s(): st.session_state.pos_slider = st.session_state.pos_box
@@ -24,7 +25,7 @@ def sync_raise_s2b(): st.session_state.raise_box = float(st.session_state.raise_
 def sync_raise_b2s(): st.session_state.raise_slider = min(max(st.session_state.raise_box, 2.0), 15.0)
 def sync_ai_s2b(): st.session_state.ai_box = float(st.session_state.ai_slider)
 def sync_ai_b2s():
-    v_stack = st.session_state.villain_stack_input
+    v_stack = st.session_state.start_stack_input
     max_val = float(v_stack) if v_stack > 1 else 100.0
     st.session_state.ai_slider = min(max(st.session_state.ai_box, 1.0), max_val)
 def sync_c1_s2b(): st.session_state.c1_box = st.session_state.c1_slider
@@ -87,14 +88,12 @@ st.markdown("""
 
 # --- 2. 사이드바 ---
 with st.sidebar:
-    # 🌐 다국어 번역 토글
     st.markdown("### 🌐 Language / 언어")
     lang = st.radio("Language", ["한국어", "English"], horizontal=True, label_visibility="collapsed")
     is_kr = (lang == "한국어")
     
     st.markdown("---")
     
-    # 팝업 함수
     @st.dialog("🏆 텍사스 홀덤 프리플랍 핸드 순위" if is_kr else "🏆 Texas Hold'em Pre-flop Hand Rankings")
     def show_hand_rankings():
         st.markdown("요청하신 **전체 169개 핸드 순위표**입니다." if is_kr else "Here is the **Top 169 Hand Rankings**.")
@@ -117,17 +116,18 @@ with st.sidebar:
     
     env_options = ["라이브펍 (루즈/와이드)", "온라인 (표준 GTO)", "대회 (타이트/생존)"] if is_kr else ["Live Pub (Loose/Wide)", "Online (Standard)", "Competition (Tight)"]
     env_idx = env_options.index(st.selectbox("플레이 환경" if is_kr else "Play Environment", env_options, index=1))
-    env_engine = ["Live Pub", "Online", "Competition"][env_idx] # 내부 로직용 고정 변수
+    env_engine = ["Live Pub", "Online", "Competition"][env_idx]
     
     mode_options = ["캐시 게임 (딥스택/배당 콜)", "토너먼트 (생존/ICM)"] if is_kr else ["Cash Game (Deep/Implied Odds)", "Tournament (Survival/ICM)"]
     mode_idx = mode_options.index(st.radio("게임 모드" if is_kr else "Game Type", mode_options, index=1))
     mode_engine = ["Cash Game", "Tournament"][mode_idx]
     
     st.markdown("---")
-    st.header("💰 스택 설정 (BB)" if is_kr else "💰 Stacks (BB)")
-    my_stack = st.number_input("나의 스택 (BB)" if is_kr else "My Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
-    villain_stack = st.number_input("상대 스택 (BB)" if is_kr else "Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0, key="villain_stack_input")
-    eff_stack = min(my_stack, villain_stack)
+    # [수정됨] 스택 입력을 시작 스택(Start Stack) 하나로 단순화
+    st.header("💰 시작 스택 설정" if is_kr else "💰 Start Stack Setup")
+    start_stack = st.number_input("시작 스택 (BB)" if is_kr else "Start Stack (BB)", 1.0, 1000.0, 50.0, step=1.0, key="start_stack_input")
+    eff_stack = start_stack # 시작 스택을 유효 스택으로 통합하여 계산에 활용
+    
     st.metric("유효 스택" if is_kr else "Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩" if is_kr else f"~ {int(eff_stack * blind_level):,} Chips")
 
     st.markdown("---")
@@ -177,7 +177,8 @@ if act_engine == "Facing Raise":
 
 elif act_engine == "Facing All-in":
     st.markdown(f"**{'상대 올인 (BB)' if is_kr else 'Opponent All-in (BB)'}**")
-    max_val = float(villain_stack) if villain_stack > 1 else 100.0
+    # [수정됨] 통합된 eff_stack 값을 맥스 밸류로 사용
+    max_val = float(eff_stack) if eff_stack > 1 else 100.0
     if st.session_state.ai_slider > max_val: st.session_state.ai_slider = max_val
     if st.session_state.ai_box > max_val: st.session_state.ai_box = max_val
 
@@ -298,7 +299,7 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
     return decision, "<br>".join(analysis)
 
 # --- 5. 결과 출력 ---
-decision, reason_html = run_master_analysis(mode_engine, env_engine, final_pos, v1, v2, suit_engine, act_engine, my_stack, eff_stack, final_amt, is_kr)
+decision, reason_html = run_master_analysis(mode_engine, env_engine, final_pos, v1, v2, suit_engine, act_engine, eff_stack, eff_stack, final_amt, is_kr)
 
 st.divider()
 if decision == "RAISE":
