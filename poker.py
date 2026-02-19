@@ -1,66 +1,69 @@
 import streamlit as st
 import pandas as pd
-import random
 
 # 1. 앱 기본 설정
-st.set_page_config(page_title="JM LEGEND 03 (AI Agent)", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
 # --- 데이터 정의 ---
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
-# --- CSS: 디자인 고정 (적녹색약/모바일/하이브리드) ---
+# --- CSS: 적녹색약 배려 & 하이브리드 최적화 ---
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { background-color: #111; border-right: 3px solid #D55E00; }
-    .quote-box { 
-        background-color: #222; color: #fff; padding: 15px; border-radius: 10px; 
-        border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 1.0em; margin-bottom: 20px;
-    }
+    .quote-box { background-color: #222; color: #fff; padding: 10px; border-radius: 8px; border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
     .quote-author { color: #D55E00; font-size: 0.8em; margin-top: 5px; display: block; }
-    .big-font { font-size: 1.3em; font-weight: 900; color: #fff; margin-top: 10px; margin-bottom: 5px; }
+    .big-font { font-size: 1.3em; font-weight: 900; color: #fff; margin-top: 15px; margin-bottom: 5px; }
     
-    /* AI Agent Analysis Box */
-    .agent-box {
-        background-color: #222; border: 1px solid #444; border-left: 5px solid #007bff;
-        padding: 15px; border-radius: 5px; color: #eee; margin-top: 10px;
-    }
-    .agent-title { font-weight: bold; color: #007bff; font-size: 1.1em; margin-bottom: 5px; }
-    
-    /* 결과 박스 (색약 안심) */
+    /* 결과 박스 (색약 안심: 주황/파랑/회색) */
     .res-box-raise { background-color: #D55E00; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-call { background-color: #0072B2; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-fold { background-color: #333333; color: #BBBBBB; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; border: 2px solid #555; }
     
-    div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; }
+    /* AI 분석 패널 */
+    .ai-panel { background-color: #1e2630; border-left: 5px solid #00ccff; padding: 15px; border-radius: 5px; margin-top: 10px; }
+    .ai-title { color: #00ccff; font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
+    .ai-text { color: #d0d0d0; font-size: 0.95em; line-height: 1.5; }
+    .highlight-stat { color: #ffeb3b; font-weight: bold; }
     
-    /* 하단 차트 */
-    .chart-header { color: #D55E00; font-weight: bold; font-size: 1.2em; margin-top: 30px; margin-bottom: 10px; }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; background-color: #222; border-radius: 5px; color: #fff; }
-    .stTabs [aria-selected="true"] { background-color: #D55E00; color: white; }
+    div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; }
+    .chart-header { color: #D55E00; font-weight: bold; font-size: 1.1em; margin-top: 25px; margin-bottom: 5px; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. 사이드바 (설정) ---
+# --- 2. 사이드바 (환경 및 스택 설정) ---
 with st.sidebar:
-    st.header("⚙️ Game Setup")
-    mode = st.radio("Game Mode", ["Cash Game", "Tournament"], index=1)
-    env = st.selectbox("Environment", ["Online", "Live Pub", "Competition"], index=1)
+    st.header("⚙️ Game Environment")
     
-    if mode == "Tournament":
-        total_entries = st.number_input("Total Entries", 2, 100000, 100, 1)
-    else:
-        total_entries = 0
-    
-    h_in = st.number_input("Active Players", 2, 20, 9, 1)
+    # [추가] 블라인드 레벨 (스타트 BB)
+    blind_level = st.number_input("Current Big Blind ($/Chips)", min_value=1, value=1000, step=100)
+    st.caption(f"💡 현재 1BB = {blind_level:,}")
     
     st.markdown("---")
-    st.header("💰 Stack (BB)")
-    my_stack = st.number_input("My BB", 1, 1000, 50)
-    villain_stack = st.number_input("Villain BB", 1, 1000, 50)
+    st.header("🎯 Range Modifiers")
+    
+    # 환경별 레인지 조정
+    env = st.selectbox("Play Environment", [
+        "Live Pub (Loose/Wide) - 루즈한 방어", 
+        "Online (Standard) - 표준 GTO", 
+        "Competition (Tight) - 타이트한 생존"
+    ], index=1)
+    
+    # 게임 모드별 운영 차이
+    mode = st.radio("Game Type", [
+        "Cash Game (Deep/Implied Odds)", 
+        "Tournament (Survival/ICM)"
+    ], index=1)
+    
+    st.markdown("---")
+    st.header("💰 Stacks (BB)")
+    my_stack = st.number_input("My Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
+    villain_stack = st.number_input("Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
     eff_stack = min(my_stack, villain_stack)
-    st.metric("Eff. Stack", f"{eff_stack} BB")
+    
+    # 칩 가치 자동 환산
+    st.metric("Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩")
 
 # --- 3. 메인 화면 ---
 st.markdown("""
@@ -81,7 +84,7 @@ with c_p2:
     pos_box = st.selectbox("Pos Box", options=pos_list, index=pos_list.index(pos_slider), label_visibility="collapsed")
 final_pos = pos_box 
 
-# [2] Action (Radio + Hybrid Input)
+# [2] Action
 st.markdown('<p class="big-font">⚔️ Action</p>', unsafe_allow_html=True)
 action = st.radio("Act", ["Unopened", "Facing Raise", "Facing All-in"], horizontal=True, label_visibility="collapsed")
 final_amt = 0.0
@@ -90,164 +93,148 @@ if action == "Facing Raise":
     st.markdown("**상대 레이즈 (BB)**")
     c_r1, c_r2 = st.columns([2.5, 1.5])
     with c_r1:
-        val_slider = st.slider("Raise Slider", 2.0, 10.0, 2.5, 0.5, label_visibility="collapsed")
+        val_slider = st.slider("Raise Slider", 2.0, 15.0, 2.5, 0.5, label_visibility="collapsed")
     with c_r2:
         val_input = st.number_input("Raise Input", 0.0, 1000.0, val_slider, step=0.5, label_visibility="collapsed")
     final_amt = val_input
-    if final_amt >= 6.0: st.caption(f"⚠️ Big Raise: {final_amt}BB")
 
 elif action == "Facing All-in":
     st.markdown("**상대 올인 (BB)**")
     max_val = float(villain_stack)
     c_a1, c_a2 = st.columns([2, 2])
     with c_a1:
-        val_slider = st.slider("AI Slider", 1.0, max_val, max_val/2, label_visibility="collapsed")
+        val_slider = st.slider("AI Slider", 1.0, max_val if max_val > 1 else 100.0, max_val/2, label_visibility="collapsed")
     with c_a2:
         val_input = st.number_input("AI Input", 1.0, 1000.0, val_slider, label_visibility="collapsed")
     final_amt = val_input
 
 st.divider()
 
-# [3] Hand (Hybrid)
+# [3] Hand
 st.markdown('<p class="big-font">🃏 My Hand</p>', unsafe_allow_html=True)
-col1, col2, col3 = st.columns([2.5, 2.5, 1.5])
-with col1:
-    st.caption("Card 1")
+c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
+with c1_col:
     v1_slider = st.select_slider("C1", cards, value="A", label_visibility="collapsed")
     v1 = st.selectbox("C1 Box", cards, index=cards.index(v1_slider), label_visibility="collapsed")
-with col2:
-    st.caption("Card 2")
+with c2_col:
     v2_slider = st.select_slider("C2", cards, value="K", label_visibility="collapsed")
     v2 = st.selectbox("C2 Box", cards, index=cards.index(v2_slider), label_visibility="collapsed")
-with col3:
-    st.caption("Suit")
-    suit_radio = st.radio("S", ["s", "o"], horizontal=True, label_visibility="collapsed")
-    suit = "s" if suit_radio == "s" else "o"
+with s_col:
+    suit_radio = st.radio("S", ["s (수딧)", "o (오프)"], horizontal=True, label_visibility="collapsed")
+    suit = "s" if "s" in suit_radio else "o"
 
-# --- 4. GTO AI AGENT ENGINE (The Brain) ---
-class PokerAgent:
-    def __init__(self, mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt):
-        self.mode = mode
-        self.env = env
-        self.pos = pos
-        self.v1 = v1
-        self.v2 = v2
-        self.suit = suit
-        self.act = act
-        self.h_stack = h_stack
-        self.e_stack = e_stack
-        self.amt = amt
-        
-        # 랭크 파싱
-        rk = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
-        self.r1 = rk[v1]
-        self.r2 = rk[v2]
-        if self.r1 < self.r2: 
-            self.v1, self.v2 = self.v2, self.v1
-            self.r1, self.r2 = self.r2, self.r1
-        self.is_pair = (self.r1 == self.r2)
-        self.is_s = (self.suit == "s")
-        self.hand = f"{self.v1}{self.v2}{self.suit}" if not self.is_pair else f"{self.v1}{self.v2}"
+# --- 4. MASTER AI EQUITY & ODDS ENGINE ---
+def calculate_approx_equity(r1, r2, is_pair, is_s):
+    # 프리플랍 에퀴티 근사치 (vs Random/Top 20% Range)
+    base = (r1 + r2) * 1.5
+    if is_pair: base = 50 + (r1 * 2.5) # AA = 85%, 22 = 55%
+    if is_s: base += 5
+    if r1 - r2 == 1: base += 3
+    # Cap equity at 85% for AA
+    return min(85.0, max(25.0, base))
 
-    def calculate_power_score(self):
-        # 1. 기본 핸드 파워 (Chen Formula 변형)
-        score = max(self.r1, self.r2) * 2
-        if self.is_pair: score = max(5, self.r1 * 2 + 5) # 포켓 페어 가산점
-        if self.is_s: score += 4 # 수딧 보너스
-        
-        # 커넥터 보너스
-        gap = self.r1 - self.r2
-        if gap == 1: score += 3
-        elif gap == 2: score += 2
-        elif gap == 0: pass
-        else: score -= gap # 갭 페널티
-        
-        # 2. 포지션 가중치
-        pos_bonus = {"BTN": 5, "CO": 4, "HJ": 3, "LJ": 2, "MP": 1, "UTG": 0, "UTG+1": 0, "SB": 1, "BB": 2}
-        score += pos_bonus.get(self.pos, 0)
-        
-        return score
+def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt):
+    rk = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
+    r1, r2 = rk[v1], rk[v2]
+    if r1 < r2: v1, v2, r1, r2 = v2, v1, r2, r1
+    is_pair = (v1 == v2)
+    is_s = (suit == "s")
+    hand = f"{v1}{v2}{suit}" if not is_pair else f"{v1}{v2}"
 
-    def analyze(self):
-        score = self.calculate_power_score()
-        reasoning = []
-        action = "FOLD"
-        
-        # [STEP 1] 절대 방어 (Premiums)
-        if self.hand in ["AA", "KK", "QQ", "AKs", "AKo"]:
-            return "RAISE", "🤖 Agent: This is a Premium Monster. Never Fold. (GTO 100%)"
+    # 에퀴티 산출
+    equity = calculate_approx_equity(r1, r2, is_pair, is_s)
+    
+    # 환경별 허용 오차 조정
+    env_modifier = 0
+    if "Live Pub" in env: env_modifier = -5 # 레인지 넓어짐 (기준점 하락)
+    elif "Competition" in env: env_modifier = +5 # 레인지 좁아짐 (기준점 상승)
 
-        # [STEP 2] 상황별 AI 판단
-        if self.act == "Unopened":
-            threshold = 28 # 기본 오픈 커트라인
-            if self.pos in ["BTN", "CO"]: threshold -= 6 # 스틸 구간
-            if self.mode == "Tournament" and self.env == "Competition": threshold += 2 # 대회는 타이트
+    analysis = []
+    decision = "FOLD"
+    
+    # --- Action: Unopened (RFI) ---
+    if act == "Unopened":
+        base_req = 55 # UTG 기본 에퀴티 컷오프
+        if pos in ["MP", "LJ"]: base_req = 50
+        elif pos in ["HJ", "CO"]: base_req = 45
+        elif pos in ["BTN", "SB"]: base_req = 40
+        
+        req_equity = base_req + env_modifier
+        
+        analysis.append(f"이 핸드의 추정 승률(Equity)은 <span class='highlight-stat'>{equity:.1f}%</span> 입니다.")
+        
+        if h_stack <= 15:
+            if equity >= 48:
+                decision = "RAISE"
+                analysis.append(f"스택이 15BB 이하이므로, 오픈 대신 <b>올인(Push)</b>을 통해 폴드 에퀴티를 극대화해야 합니다.")
+            else:
+                decision = "FOLD"
+                analysis.append("숏스택 상황에서 승부하기엔 에퀴티가 낮아 칩을 보존(Fold)해야 합니다.")
+        elif equity >= req_equity:
+            decision = "RAISE"
+            analysis.append(f"현재 포지션({pos})의 오픈 최소 요구치({req_equity}%)를 상회하므로 수익성 있는 <b>레이즈(Raise)</b> 구간입니다.")
+        else:
+            decision = "FOLD"
+            analysis.append(f"현재 포지션({pos})에서 먼저 팟을 열기에는 너무 약한 핸드(Fold)입니다.")
+
+    # --- Action: Facing All-in ---
+    elif act == "Facing All-in":
+        # 팟 오즈(Pot Odds) 계산: 콜 금액 / (현재 팟 + 콜 금액)
+        # (기본 블라인드 1.5BB 가정)
+        call_amt = amt
+        pot_size = amt + 1.5 
+        pot_odds = (call_amt / (pot_size + call_amt)) * 100
+        
+        analysis.append(f"내 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 요구 팟 오즈: <span class='highlight-stat'>{pot_odds:.1f}%</span>")
+        
+        # 콜 마진 적용 (토너먼트면 더 높은 마진 요구)
+        call_margin = 2 if "Cash" in mode else 7 
+        
+        if equity >= (pot_odds + call_margin):
+            decision = "CALL"
+            analysis.append(f"내 핸드의 승률({equity:.1f}%)이 요구 배당({pot_odds:.1f}%)보다 높으므로 수학적으로 <b>장기적 수익(+EV)이 나는 콜(Call)</b>입니다.")
+        else:
+            decision = "FOLD"
+            analysis.append(f"승률보다 요구 배당이 높아 <b>손해(-EV)를 보는 구간</b>입니다. 폴드하십시오.")
+            if "Tournament" in mode: analysis.append("특히 토너먼트는 목숨(ICM)이 걸려있으므로 확실한 우위가 아니면 피해야 합니다.")
+
+    # --- Action: Facing Raise ---
+    elif act == "Facing Raise":
+        if hand in ["AA", "KK", "QQ", "AKs", "AKo"]:
+            decision = "RAISE"
+            analysis.append("최상위 프리미엄 핸드입니다. 무조건 <b>3-Bet(리레이즈)</b>을 통해 팟을 키우고 상대의 밸류를 뽑아내야 합니다.")
+        else:
+            # 방어 요구 에퀴티
+            def_req = 48 + env_modifier
+            if pos == "BB": def_req -= 8 # BB는 이미 1BB를 냈으므로 방어 레인지가 넓음
             
-            # 숏스택 로직
-            if self.h_stack <= 15:
-                if score >= 25: return "RAISE", f"🤖 Agent: Stack is short ({self.h_stack}BB). Push with Score {score}."
-                return "FOLD", "🤖 Agent: Save chips for a better spot."
+            if amt >= 6.0: 
+                def_req += 15 # 빅 레이즈에는 타이트하게 대응
+                analysis.append(f"상대가 {amt}BB의 큰 레이즈를 했습니다. 매우 강력한 레인지로 압축해야 합니다.")
                 
-            if score >= threshold:
-                action = "RAISE"
-                reasoning.append(f"Position ({self.pos}) advantage confirmed.")
-                reasoning.append(f"Hand Power ({score}) exceeds threshold ({threshold}).")
-            else:
-                action = "FOLD"
-                reasoning.append(f"Hand Power ({score}) is too weak for {self.pos}.")
-
-        elif self.act == "Facing Raise":
-            req_equity = 40 # 기본 요구 승률 점수
+            analysis.append(f"현재 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 방어 컷오프: <span class='highlight-stat'>{def_req:.1f}%</span>")
             
-            # BB 방어 특수 로직
-            if self.pos == "BB":
-                if self.amt >= 6.0: 
-                    req_equity = 60 # 빅오픈 -> 타이트
-                    reasoning.append(f"Villain's Raise ({self.amt}BB) is HUGE. Tightening range.")
-                elif self.amt <= 3.0: 
-                    req_equity = 25 # 스몰오픈 -> 와이드
-                    reasoning.append("Pot Odds are good. Widening defense range.")
+            if equity >= def_req + 10:
+                decision = "RAISE"
+                analysis.append("상대의 레이즈 레인지를 압도합니다. 주도권을 뺏는 <b>3-Bet(레이즈)</b>이 정석입니다.")
+            elif equity >= def_req:
+                decision = "CALL"
+                if "Live Pub" in env and is_s:
+                    analysis.append("라이브펍 특성상 멀티웨이 팟이 자주 나오므로 수딧/커넥터 류의 <b>배당 콜(Call)</b>이 매우 유리합니다.")
+                elif "Cash" in mode and is_pair and r1 < 10 and (e_stack/amt) >= 20:
+                    analysis.append("캐시게임 딥스택 <b>셋마이닝(Set Mining)</b> 조건이 성립합니다. 콜을 받고 셋을 맞추러 갑니다.")
                 else:
-                    req_equity = 35
-            
-            # 캐시게임 셋마이닝 체크
-            if self.mode == "Cash Game" and self.is_pair and self.r1 < 10:
-                implied_odds = self.e_stack / self.amt
-                if implied_odds >= 20: return "CALL", f"🤖 Agent: Set Mining Valid (Implied Odds {implied_odds:.1f}x > 20x)."
-                else: return "FOLD", f"🤖 Agent: Set Mining Invalid (Odds {implied_odds:.1f}x too low)."
-
-            if score >= req_equity:
-                action = "CALL"
-                if score >= req_equity + 15: action = "RAISE" # 3-Bet
-                reasoning.append(f"Hand Score {score} vs Required {req_equity}.")
+                    analysis.append("적절한 에퀴티를 보유하여 <b>방어(Call)</b> 후 포스트플랍 운영을 추천합니다.")
             else:
-                action = "FOLD"
-                reasoning.append(f"EV is negative vs {self.amt}BB Raise.")
+                decision = "FOLD"
+                analysis.append("상대의 레이즈에 도미네잇(Dominated) 당할 확률이 높습니다. <b>미련 없이 폴드(Fold)</b>하세요.")
 
-        elif self.act == "Facing All-in":
-            risk_tolerance = "High" if self.mode == "Cash Game" else "Low"
-            
-            if self.mode == "Tournament":
-                if self.h_stack < self.amt: # Risk of Elimination
-                    if self.hand in ["JJ", "TT", "AQs", "AQo"]: return "CALL", "🤖 Agent: Critical Spot. Equity suggests CALL despite risk."
-                    if self.hand in ["99", "88", "KQs"]: return "FOLD", "🤖 Agent: Too risky for Tournament Life (ICM)."
-            
-            # 기본 올인 콜 범위
-            call_range = ["AA", "KK", "QQ", "JJ", "TT", "99", "AKs", "AKo", "AQs", "AQo"]
-            if self.hand in call_range:
-                return "CALL", "🤖 Agent: Hand is within profitable Call Range."
-            return "FOLD", "🤖 Agent: Equity insufficient to call Shove."
+    return decision, "<br>".join(analysis)
 
-        # 최종 메시지 조합
-        final_reason = " ".join(reasoning) if reasoning else "Standard GTO Decision."
-        return action, f"🤖 Agent Analysis: {final_reason}"
-
-# --- 5. 실행 및 출력 ---
-agent = PokerAgent(mode, env, final_pos, v1, v2, suit, action, my_stack, eff_stack, final_amt)
-decision, reasoning = agent.analyze()
+# --- 5. 결과 출력 ---
+decision, reason_html = run_master_analysis(mode, env, final_pos, v1, v2, suit, action, my_stack, eff_stack, final_amt)
 
 st.divider()
-
 if decision == "RAISE":
     st.markdown(f'<div class="res-box-raise">{decision}</div>', unsafe_allow_html=True)
 elif decision == "CALL":
@@ -255,27 +242,51 @@ elif decision == "CALL":
 else:
     st.markdown(f'<div class="res-box-fold">{decision}</div>', unsafe_allow_html=True)
 
-# Agent 분석 박스
+# 💡 상세 분석 패널
 st.markdown(f"""
-<div class="agent-box">
-    <div class="agent-title">🧠 GTO Agent Intelligence</div>
-    {reasoning}
+<div class="ai-panel">
+    <div class="ai-title">🤖 AI Agent Analysis Report</div>
+    <div class="ai-text">{reason_html}</div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- 6. 하단 차트 (고정) ---
+# --- 6. 하단 GTO 고정 차트 ---
 st.markdown("---")
-st.markdown('<p class="chart-header">🚀 Short Stack Push (20BB↓)</p>', unsafe_allow_html=True)
+st.markdown('<p class="chart-header">🚀 15BB Nash Equilibrium (Short Stack Push)</p>', unsafe_allow_html=True)
+st.caption("※ 숏스택(소액 BB 소유) 시 포지션별 완벽한 올인 레인지입니다.")
 st.table(pd.DataFrame({
-    "Pos": ["UTG", "HJ", "CO", "BTN", "SB"],
-    "Push": ["77+, AJs+, AQo+", "55+, A9s+, AJo+", "22+, A2s+, A8o+", "Any Pair, Any Ax, Kx", "Any Pair, Any Ax, Q5s+"]
+    "Position": ["UTG / EP", "MP / HJ", "CO", "BTN", "SB"],
+    "All-in Range": [
+        "22+, A2s+, K8s+, Q9s+, J9s+, T9s, A8o+, KTo+, QJo",
+        "22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, A5o+, KTo+, QTo+",
+        "22+, A2s+, K2s+, Q5s+, J7s+, T7s+, 97s+, A2o+, K8o+, Q9o+",
+        "22+, A2s+, K2s+, Q2s+, J2s+, T4s+, 95s+, 84s+, A2o+, K2o+",
+        "Any Pair, Any Suited Ax/Kx, Q2s+, J2s+, Any Off-suit Ax/Kx"
+    ]
 }))
 
-st.markdown('<p class="chart-header">📊 Professional GTO Ranges</p>', unsafe_allow_html=True)
-tab1, tab2, tab3 = st.tabs(["Early (EP/MP)", "Late (CO/BTN)", "Blinds (SB)"])
+st.markdown('<p class="chart-header">📊 100BB GTO RFI (Standard Range)</p>', unsafe_allow_html=True)
+st.caption("※ 정상 스택 포지션별 정석 오픈(Raise First In) 레인지입니다.")
+tab1, tab2, tab3 = st.tabs(["Early (UTG/MP)", "Late (CO/BTN)", "Blinds (SB)"])
+
 with tab1:
-    st.table(pd.DataFrame({"Pos": ["UTG", "MP"], "Range": ["77+, ATs+, AQo+", "55+, KTs+, AJo+"]}))
+    st.table(pd.DataFrame({
+        "Pos": ["UTG", "MP"],
+        "Pairs": ["77+", "55+"],
+        "Suited": ["ATs+, KTs+, QTs+, JTs", "A9s+, K9s+, Q9s+, J9s"],
+        "Off-suit": ["AQo+", "AJo+, KQo"]
+    }))
 with tab2:
-    st.table(pd.DataFrame({"Pos": ["CO", "BTN"], "Range": ["22+, A8o+, Q9s+", "Any Pair, Any Suited, Any Ax"]}))
+    st.table(pd.DataFrame({
+        "Pos": ["CO", "BTN"],
+        "Pairs": ["22+", "22+"],
+        "Suited": ["A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+", "A2s+, K2s+, Q2s+, J5s+, T6s+, 96s+"],
+        "Off-suit": ["ATo+, KTo+, QJo", "A2o+, K8o+, Q9o+, J9o+, T9o"]
+    }))
 with tab3:
-    st.table(pd.DataFrame({"Pos": ["SB"], "Range": ["22+, A7o+, K8s+, 98s+"]}))
+    st.table(pd.DataFrame({
+        "Pos": ["SB"],
+        "Pairs": ["22+"],
+        "Suited": ["A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+"],
+        "Off-suit": ["A9o+, KTo+, QTo+, JTo"]
+    }))
