@@ -6,50 +6,39 @@ import os
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
 # --- 양방향 동기화(Sync) 로직 & 세션 초기화 ---
-if 'pos_slider' not in st.session_state: st.session_state.pos_slider = "BTN"
-if 'pos_box' not in st.session_state: st.session_state.pos_box = "BTN"
-if 'raise_slider' not in st.session_state: st.session_state.raise_slider = 2.5
-if 'raise_box' not in st.session_state: st.session_state.raise_box = 2.5
-if 'ai_slider' not in st.session_state: st.session_state.ai_slider = 25.0
-if 'ai_box' not in st.session_state: st.session_state.ai_box = 25.0
-if 'c1_slider' not in st.session_state: st.session_state.c1_slider = "A"
-if 'c1_box' not in st.session_state: st.session_state.c1_box = "A"
-if 'c2_slider' not in st.session_state: st.session_state.c2_slider = "K"
-if 'c2_box' not in st.session_state: st.session_state.c2_box = "K"
+sync_keys = [
+    'pos', 'raise', 'ai', 'c1', 'c2', 
+    'f1', 'f2', 'f3', 't', 'r', 
+    'vc1', 'vc2'
+]
+for k in sync_keys:
+    if f'{k}_slider' not in st.session_state: st.session_state[f'{k}_slider'] = "A" if k not in ['raise', 'ai', 'pos'] else ("BTN" if k == 'pos' else 2.5 if k == 'raise' else 25.0)
+    if f'{k}_box' not in st.session_state: st.session_state[f'{k}_box'] = "A" if k not in ['raise', 'ai', 'pos'] else ("BTN" if k == 'pos' else 2.5 if k == 'raise' else 25.0)
+
 if 'start_stack_input' not in st.session_state: st.session_state.start_stack_input = 50.0
 
-# 포스트플랍 보드카드 동기화 변수
-for key in ['f1', 'f2', 'f3', 't', 'r']:
-    if f'{key}_slider' not in st.session_state: st.session_state[f'{key}_slider'] = "A"
-    if f'{key}_box' not in st.session_state: st.session_state[f'{key}_box'] = "A"
+def create_sync_callbacks(key, is_number=False):
+    def s2b(): st.session_state[f'{key}_box'] = float(st.session_state[f'{key}_slider']) if is_number else st.session_state[f'{key}_slider']
+    def b2s(): 
+        if is_number:
+            if key == 'raise': st.session_state[f'{key}_slider'] = min(max(st.session_state[f'{key}_box'], 2.0), 15.0)
+            elif key == 'ai': st.session_state[f'{key}_slider'] = min(max(st.session_state[f'{key}_box'], 1.0), max(st.session_state.start_stack_input, 100.0))
+        else:
+            st.session_state[f'{key}_slider'] = st.session_state[f'{key}_box']
+    return s2b, b2s
 
-# 프리플랍 콜백
-def sync_pos_s2b(): st.session_state.pos_box = st.session_state.pos_slider
-def sync_pos_b2s(): st.session_state.pos_slider = st.session_state.pos_box
-def sync_raise_s2b(): st.session_state.raise_box = float(st.session_state.raise_slider)
-def sync_raise_b2s(): st.session_state.raise_slider = min(max(st.session_state.raise_box, 2.0), 15.0)
-def sync_ai_s2b(): st.session_state.ai_box = float(st.session_state.ai_slider)
-def sync_ai_b2s():
-    max_val = float(st.session_state.start_stack_input) if st.session_state.start_stack_input > 1 else 100.0
-    st.session_state.ai_slider = min(max(st.session_state.ai_box, 1.0), max_val)
-def sync_c1_s2b(): st.session_state.c1_box = st.session_state.c1_slider
-def sync_c1_b2s(): st.session_state.c1_slider = st.session_state.c1_box
-def sync_c2_s2b(): st.session_state.c2_box = st.session_state.c2_slider
-def sync_c2_b2s(): st.session_state.c2_slider = st.session_state.c2_box
+cb_pos_s2b, cb_pos_b2s = create_sync_callbacks('pos')
+cb_raise_s2b, cb_raise_b2s = create_sync_callbacks('raise', True)
+cb_ai_s2b, cb_ai_b2s = create_sync_callbacks('ai', True)
+cb_c1_s2b, cb_c1_b2s = create_sync_callbacks('c1')
+cb_c2_s2b, cb_c2_b2s = create_sync_callbacks('c2')
+cb_f1_s2b, cb_f1_b2s = create_sync_callbacks('f1')
+cb_f2_s2b, cb_f2_b2s = create_sync_callbacks('f2')
+cb_f3_s2b, cb_f3_b2s = create_sync_callbacks('f3')
+cb_t_s2b, cb_t_b2s = create_sync_callbacks('t')
+cb_r_s2b, cb_r_b2s = create_sync_callbacks('r')
 
-# 포스트플랍 콜백
-def sync_f1_s2b(): st.session_state.f1_box = st.session_state.f1_slider
-def sync_f1_b2s(): st.session_state.f1_slider = st.session_state.f1_box
-def sync_f2_s2b(): st.session_state.f2_box = st.session_state.f2_slider
-def sync_f2_b2s(): st.session_state.f2_slider = st.session_state.f2_box
-def sync_f3_s2b(): st.session_state.f3_box = st.session_state.f3_slider
-def sync_f3_b2s(): st.session_state.f3_slider = st.session_state.f3_box
-def sync_t_s2b(): st.session_state.t_box = st.session_state.t_slider
-def sync_t_b2s(): st.session_state.t_slider = st.session_state.t_box
-def sync_r_s2b(): st.session_state.r_box = st.session_state.r_slider
-def sync_r_b2s(): st.session_state.r_slider = st.session_state.r_box
-
-# --- 방문자 카운트 ---
+# --- 방문자 카운트 로직 ---
 counter_file = "visitor_count.txt"
 if 'visited' not in st.session_state:
     st.session_state.visited = True
@@ -72,7 +61,7 @@ else:
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
-# --- 🚨 글씨색/배경색 절대 강제 고정 CSS (건드리지 않음) ---
+# --- 🚨 글씨색/배경색 절대 강제 고정 CSS ---
 st.markdown("""
     <style>
     /* 메인 화면: 흰 배경 + 검정 글씨 */
@@ -334,8 +323,8 @@ with tab_home:
     
     st.markdown('<p class="big-font">📍 나의 포지션 (My Position)</p>', unsafe_allow_html=True)
     c_p1, c_p2 = st.columns([3, 1.2])
-    with c_p1: st.select_slider("Pos Slider", options=pos_list, key="pos_slider", on_change=sync_pos_s2b, label_visibility="collapsed")
-    with c_p2: st.selectbox("Pos Box", options=pos_list, key="pos_box", on_change=sync_pos_b2s, label_visibility="collapsed")
+    with c_p1: st.select_slider("Pos Slider", options=pos_list, key="pos_slider", on_change=cb_pos_s2b, label_visibility="collapsed")
+    with c_p2: st.selectbox("Pos Box", options=pos_list, key="pos_box", on_change=cb_pos_b2s, label_visibility="collapsed")
     final_pos = st.session_state.pos_box 
 
     st.markdown('<p class="big-font">⚔️ 상황 (Action)</p>', unsafe_allow_html=True)
@@ -348,26 +337,26 @@ with tab_home:
     if act_engine == "Facing Raise":
         st.markdown("**상대 레이즈 (BB)**" if is_kr else "**Opponent Raise (BB)**")
         c_r1, c_r2 = st.columns([2.5, 1.5])
-        with c_r1: st.slider("Raise Slider", 2.0, 15.0, step=0.5, key="raise_slider", on_change=sync_raise_s2b, label_visibility="collapsed")
-        with c_r2: st.number_input("Raise Input", 0.0, 1000.0, step=0.5, key="raise_box", on_change=sync_raise_b2s, label_visibility="collapsed")
+        with c_r1: st.slider("Raise Slider", 2.0, 15.0, step=0.5, key="raise_slider", on_change=cb_raise_s2b, label_visibility="collapsed")
+        with c_r2: st.number_input("Raise Input", 0.0, 1000.0, step=0.5, key="raise_box", on_change=cb_raise_b2s, label_visibility="collapsed")
         final_amt = st.session_state.raise_box
     elif act_engine == "Facing All-in":
         st.markdown("**상대 올인 (BB)**" if is_kr else "**Opponent All-in (BB)**")
         max_val = float(eff_stack) if eff_stack > 1 else 100.0
         c_a1, c_a2 = st.columns([2, 2])
-        with c_a1: st.slider("AI Slider", 1.0, max_val, key="ai_slider", on_change=sync_ai_s2b, label_visibility="collapsed")
-        with c_a2: st.number_input("AI Input", 1.0, 1000.0, key="ai_box", on_change=sync_ai_b2s, label_visibility="collapsed")
+        with c_a1: st.slider("AI Slider", 1.0, max_val, key="ai_slider", on_change=cb_ai_s2b, label_visibility="collapsed")
+        with c_a2: st.number_input("AI Input", 1.0, 1000.0, key="ai_box", on_change=cb_ai_b2s, label_visibility="collapsed")
         final_amt = st.session_state.ai_box
 
     st.markdown('<p class="big-font">🃏 나의 핸드 (My Hand)</p>', unsafe_allow_html=True)
     c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
     with c1_col:
-        st.select_slider("C1 Slider", cards, key="c1_slider", on_change=sync_c1_s2b, label_visibility="collapsed")
-        st.selectbox("C1 Box", cards, key="c1_box", on_change=sync_c1_b2s, label_visibility="collapsed")
+        st.select_slider("C1 Slider", cards, key="c1_slider", on_change=cb_c1_s2b, label_visibility="collapsed")
+        st.selectbox("C1 Box", cards, key="c1_box", on_change=cb_c1_b2s, label_visibility="collapsed")
         v1 = st.session_state.c1_box
     with c2_col:
-        st.select_slider("C2 Slider", cards, key="c2_slider", on_change=sync_c2_s2b, label_visibility="collapsed")
-        st.selectbox("C2 Box", cards, key="c2_box", on_change=sync_c2_b2s, label_visibility="collapsed")
+        st.select_slider("C2 Slider", cards, key="c2_slider", on_change=cb_c2_s2b, label_visibility="collapsed")
+        st.selectbox("C2 Box", cards, key="c2_box", on_change=cb_c2_b2s, label_visibility="collapsed")
         v2 = st.session_state.c2_box
     with s_col:
         suit_idx = ["s", "o"].index("s" if "s" in st.radio("S", ["s (수딧)", "o (오프)"] if is_kr else ["s (Suited)", "o (Off-suit)"], horizontal=True, label_visibility="collapsed") else "o")
@@ -388,7 +377,7 @@ with tab_home:
     </div>
     """, unsafe_allow_html=True)
 
-    # [하단 차트 영구 유지]
+    # 🚨 [하단 차트 오타 수정됨 & 영구 유지]
     st.markdown("---")
     st.markdown(f'<p class="chart-header">🚀 15BB Nash Equilibrium (Short Stack Push)</p>', unsafe_allow_html=True)
     st.table(pd.DataFrame({
@@ -409,7 +398,7 @@ with tab_home:
             "Pos": ["UTG", "MP"],
             "Pairs": ["77+", "55+"],
             "Suited": ["ATs+, KTs+, QTs+, JTs", "A9s+, K9s+, Q9s+, J9s"],
-            "Off-suit": ["AQo+", "AJo+", KQo"]
+            "Off-suit": ["AQo+", "AJo+, KQo"]
         }))
     with tab2:
         st.table(pd.DataFrame({
@@ -433,14 +422,14 @@ with tab_flop:
     st.markdown('<p class="big-font">🎴 보드 카드 입력 (Flop)</p>', unsafe_allow_html=True)
     c_f1, c_f2, c_f3 = st.columns(3)
     with c_f1:
-        st.select_slider("F1 Slider", cards, key="f1_slider", on_change=sync_f1_s2b, label_visibility="collapsed")
-        st.selectbox("F1 Box", cards, key="f1_box", on_change=sync_f1_b2s, label_visibility="collapsed")
+        st.select_slider("F1 Slider", cards, key="f1_slider", on_change=cb_f1_s2b, label_visibility="collapsed")
+        st.selectbox("F1 Box", cards, key="f1_box", on_change=cb_f1_b2s, label_visibility="collapsed")
     with c_f2:
-        st.select_slider("F2 Slider", cards, key="f2_slider", on_change=sync_f2_s2b, label_visibility="collapsed")
-        st.selectbox("F2 Box", cards, key="f2_box", on_change=sync_f2_b2s, label_visibility="collapsed")
+        st.select_slider("F2 Slider", cards, key="f2_slider", on_change=cb_f2_s2b, label_visibility="collapsed")
+        st.selectbox("F2 Box", cards, key="f2_box", on_change=cb_f2_b2s, label_visibility="collapsed")
     with c_f3:
-        st.select_slider("F3 Slider", cards, key="f3_slider", on_change=sync_f3_s2b, label_visibility="collapsed")
-        st.selectbox("F3 Box", cards, key="f3_box", on_change=sync_f3_b2s, label_visibility="collapsed")
+        st.select_slider("F3 Slider", cards, key="f3_slider", on_change=cb_f3_s2b, label_visibility="collapsed")
+        st.selectbox("F3 Box", cards, key="f3_box", on_change=cb_f3_b2s, label_visibility="collapsed")
 
     st.markdown('<p class="big-font">🕵️ 나의 상황 (My Status)</p>', unsafe_allow_html=True)
     c_m1, c_m2 = st.columns(2)
@@ -473,9 +462,9 @@ with tab_turn:
     st.markdown('<p class="big-font">🎴 턴 카드 입력 (Turn)</p>', unsafe_allow_html=True)
     c_t1, c_t2 = st.columns([3, 1.2])
     with c_t1:
-        st.select_slider("T Slider", cards, key="t_slider", on_change=sync_t_s2b, label_visibility="collapsed")
+        st.select_slider("T Slider", cards, key="t_slider", on_change=cb_t_s2b, label_visibility="collapsed")
     with c_t2:
-        st.selectbox("T Box", cards, key="t_box", on_change=sync_t_b2s, label_visibility="collapsed")
+        st.selectbox("T Box", cards, key="t_box", on_change=cb_t_b2s, label_visibility="collapsed")
 
     st.markdown('<p class="big-font">🕵️ 나의 상황 (My Status)</p>', unsafe_allow_html=True)
     c_tm1, c_tm2 = st.columns(2)
@@ -508,9 +497,9 @@ with tab_river:
     st.markdown('<p class="big-font">🎴 리버 카드 입력 (River)</p>', unsafe_allow_html=True)
     c_r1, c_r2 = st.columns([3, 1.2])
     with c_r1:
-        st.select_slider("R Slider", cards, key="r_slider", on_change=sync_r_s2b, label_visibility="collapsed")
+        st.select_slider("R Slider", cards, key="r_slider", on_change=cb_r_s2b, label_visibility="collapsed")
     with c_r2:
-        st.selectbox("R Box", cards, key="r_box", on_change=sync_r_b2s, label_visibility="collapsed")
+        st.selectbox("R Box", cards, key="r_box", on_change=cb_r_b2s, label_visibility="collapsed")
 
     st.markdown('<p class="big-font">🕵️ 나의 상황 (My Status)</p>', unsafe_allow_html=True)
     my_made_r = st.selectbox("최종 메이드 상태 (리버는 드로우 없음)", ["노 페어 (에어)", "미들/바텀 페어", "탑 페어", "투 페어", "셋 (Set) 이상"], key="my_made_r")
