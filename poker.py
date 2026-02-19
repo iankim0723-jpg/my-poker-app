@@ -5,7 +5,7 @@ import os
 # 1. 앱 기본 설정 (반드시 최상단에 위치)
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
-# --- [추가] 방문자 카운트 로직 ---
+# --- 방문자 카운트 로직 ---
 counter_file = "visitor_count.txt"
 
 # 세션에 'visited' 기록이 없으면(새로운 접속이면) 카운트 증가
@@ -26,7 +26,7 @@ if 'visited' not in st.session_state:
         f.write(str(count))
     st.session_state.v_count = count
 else:
-    # 이미 접속한 유저면 숫자만 읽어옴 (클릭할때마다 올라가는 것 방지)
+    # 이미 접속한 유저면 숫자만 읽어옴
     if os.path.exists(counter_file):
         with open(counter_file, "r") as f:
             try:
@@ -60,26 +60,24 @@ st.markdown("""
     div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
     .chart-header { color: #D55E00; font-weight: bold; font-size: 1.1em; margin-top: 25px; margin-bottom: 5px; text-align: center; }
     
-    /* 테이블 가독성 조정 */
     th { background-color: #222 !important; color: #D55E00 !important; text-align: center !important; }
     td { text-align: center !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 핸드레인지 순위표 팝업 (사용자 이미지 연동) ---
+# --- 핸드레인지 순위표 팝업 (이미지 확장자 수정됨: .png) ---
 @st.dialog("🏆 텍사스 홀덤 프리플랍 핸드 순위 (1~169위)")
 def show_hand_rankings():
     st.markdown("요청하신 **전체 169개 핸드 순위표**입니다.")
     st.caption("🟨 포켓(Pocket) | 🟥 수딧(Suited) | 🟦 오프수딧(Off suit)")
     
-    # 이미지 파일이 있으면 렌더링
-    image_path = "핸드레이지 표.jpg"
+    # [수정] 이미지 파일명을 깃허브에 올라간 .png로 변경
+    image_path = "핸드레이지 표.png"
     if os.path.exists(image_path):
         st.image(image_path, use_container_width=True)
     else:
-        st.warning(f"⚠️ 이미지를 찾을 수 없습니다. '{image_path}' 파일을 이 파이썬 파일과 같은 폴더에 넣어주세요.")
+        st.warning(f"⚠️ 이미지를 찾을 수 없습니다. 깃허브에 '{image_path}' 파일이 제대로 올라가 있는지 확인해주세요.")
         
-        # 이미지가 없을 때를 대비한 텍스트 데이터베이스
         st.markdown("### 🔥 Top 50 텍스트 요약")
         df = pd.DataFrame({
             "순위": ["1~10위", "11~20위", "21~30위", "31~40위", "41~50위"],
@@ -122,7 +120,7 @@ with st.sidebar:
     eff_stack = min(my_stack, villain_stack)
     st.metric("Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩")
 
-    # --- [추가] 사이드바 하단 방문자 카운터 UI ---
+    # 사이드바 하단 방문자 카운터 UI
     st.markdown("---")
     st.markdown(f"""
     <div style='text-align: center; padding: 15px; background-color: #1e1e1e; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;'>
@@ -141,8 +139,8 @@ st.markdown("""
 
 st.title("🛡️ JM LEGEND 03")
 
-# [1] Position (Hybrid)
-st.markdown('<p class="big-font">📍 Position</p>', unsafe_allow_html=True)
+# [1] Position (Hybrid) - [수정됨] "나의 포지션"으로 라벨 명확화
+st.markdown('<p class="big-font">📍 나의 포지션 (My Position)</p>', unsafe_allow_html=True)
 c_p1, c_p2 = st.columns([3, 1.2])
 with c_p1:
     pos_slider = st.select_slider("Pos Slider", options=pos_list, value="BTN", label_visibility="collapsed")
@@ -177,7 +175,7 @@ elif action == "Facing All-in":
 st.divider()
 
 # [3] Hand
-st.markdown('<p class="big-font">🃏 My Hand</p>', unsafe_allow_html=True)
+st.markdown('<p class="big-font">🃏 나의 핸드 (My Hand)</p>', unsafe_allow_html=True)
 c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
 with c1_col:
     v1_slider = st.select_slider("C1", cards, value="A", label_visibility="collapsed")
@@ -251,10 +249,10 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
                 analysis.append("숏스택 상황에서 승부하기엔 에퀴티가 낮아 칩을 보존(Fold)해야 합니다.")
         elif equity >= req_equity:
             decision = "RAISE"
-            analysis.append(f"현재 포지션({pos})의 오픈 최소 요구치({req_equity}%)를 상회하므로 수익성 있는 <b>레이즈(Raise)</b> 구간입니다.")
+            analysis.append(f"현재 나의 포지션({pos})의 오픈 최소 요구치({req_equity}%)를 상회하므로 수익성 있는 <b>레이즈(Raise)</b> 구간입니다.")
         else:
             decision = "FOLD"
-            analysis.append(f"현재 포지션({pos})에서 먼저 팟을 열기에는 너무 약한 핸드(Fold)입니다.")
+            analysis.append(f"현재 나의 포지션({pos})에서 먼저 팟을 열기에는 너무 약한 핸드(Fold)입니다.")
 
     elif act == "Facing All-in":
         call_amt = amt
