@@ -169,4 +169,5 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
     equity = calculate_approx_equity(r1, r2, is_pair, is_s)
     
     env_modifier = 0
-    if "Live Pub" in env
+    if "Live Pub" in env:
+
