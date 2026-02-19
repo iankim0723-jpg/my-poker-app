@@ -2,8 +2,39 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 1. 앱 기본 설정
+# 1. 앱 기본 설정 (반드시 최상단에 위치)
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
+
+# --- [추가] 방문자 카운트 로직 ---
+counter_file = "visitor_count.txt"
+
+# 세션에 'visited' 기록이 없으면(새로운 접속이면) 카운트 증가
+if 'visited' not in st.session_state:
+    st.session_state.visited = True
+    if os.path.exists(counter_file):
+        with open(counter_file, "r") as f:
+            try:
+                count = int(f.read().strip())
+            except ValueError:
+                count = 0
+    else:
+        count = 0
+    
+    count += 1
+    # 증가된 카운트 저장
+    with open(counter_file, "w") as f:
+        f.write(str(count))
+    st.session_state.v_count = count
+else:
+    # 이미 접속한 유저면 숫자만 읽어옴 (클릭할때마다 올라가는 것 방지)
+    if os.path.exists(counter_file):
+        with open(counter_file, "r") as f:
+            try:
+                count = int(f.read().strip())
+            except ValueError:
+                count = st.session_state.v_count
+    else:
+        count = st.session_state.v_count
 
 # --- 데이터 정의 ---
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
@@ -90,6 +121,15 @@ with st.sidebar:
     villain_stack = st.number_input("Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
     eff_stack = min(my_stack, villain_stack)
     st.metric("Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩")
+
+    # --- [추가] 사이드바 하단 방문자 카운터 UI ---
+    st.markdown("---")
+    st.markdown(f"""
+    <div style='text-align: center; padding: 15px; background-color: #1e1e1e; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;'>
+        <span style='color: #00ccff; font-weight: bold; font-size: 1.1em;'>👁️ 누적 방문자 수</span><br>
+        <span style='font-size: 2em; font-weight: 900; color: white;'>{count:,}</span><span style='color: #888; font-size: 0.9em;'> 명</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- 3. 메인 화면 ---
 st.markdown("""
