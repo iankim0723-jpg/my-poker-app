@@ -5,11 +5,7 @@ import os
 # 1. 앱 기본 설정 (반드시 최상단에 위치)
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
-# --- 데이터 정의 ---
-pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
-cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
-
-# --- [추가] 양방향 동기화(Sync) 로직 & 세션 초기화 ---
+# --- 양방향 동기화(Sync) 로직 & 세션 초기화 ---
 if 'pos_slider' not in st.session_state: st.session_state.pos_slider = "BTN"
 if 'pos_box' not in st.session_state: st.session_state.pos_box = "BTN"
 if 'raise_slider' not in st.session_state: st.session_state.raise_slider = 2.5
@@ -62,28 +58,51 @@ else:
             except ValueError: count = st.session_state.v_count
     else: count = st.session_state.v_count
 
+# --- 데이터 정의 ---
+pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
+cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
+
 # --- CSS: 적녹색약 배려 & 하이브리드 최적화 ---
 st.markdown("""
     <style>
+    /* 메인 바탕 및 사이드바 배경 */
     [data-testid="stSidebar"] { background-color: #111; border-right: 3px solid #D55E00; }
+    
+    /* 🚨 [추가] 사이드바 텍스트 색상 대조 (검은 바탕 ↔ 흰 글씨) */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] label p, 
+    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] { 
+        color: #ffffff !important; 
+    }
+    
+    /* 사이드바 상단 버튼(핸드 순위표) 디자인 강조 */
+    [data-testid="stSidebar"] button { background-color: #D55E00 !important; border: none !important; }
+    [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
+
+    /* 메인 화면 명언 박스 */
     .quote-box { background-color: #222; color: #fff; padding: 10px; border-radius: 8px; border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
     .quote-author { color: #D55E00; font-size: 0.8em; margin-top: 5px; display: block; }
     
-    /* 🚨 흰색 바탕에 가장 대조되는 검정색(#111)으로 타이틀 글씨 색상 유지 */
+    /* 메인 화면 타이틀 글씨 (흰 바탕 ↔ 검은 글씨) */
     .big-font { font-size: 1.3em; font-weight: 900; color: #111; margin-top: 15px; margin-bottom: 5px; }
     
+    /* 결과 박스 (색약 안심) */
     .res-box-raise { background-color: #D55E00; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-call { background-color: #0072B2; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-fold { background-color: #333333; color: #BBBBBB; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; border: 2px solid #555; }
     
+    /* AI 분석 패널 */
     .ai-panel { background-color: #1e2630; border-left: 5px solid #00ccff; padding: 15px; border-radius: 5px; margin-top: 10px; }
     .ai-title { color: #00ccff; font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
     .ai-text { color: #d0d0d0; font-size: 0.95em; line-height: 1.5; }
     .highlight-stat { color: #ffeb3b; font-weight: bold; }
     
+    /* 메인 버튼 및 테이블 가독성 */
     div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
     .chart-header { color: #D55E00; font-weight: bold; font-size: 1.1em; margin-top: 25px; margin-bottom: 5px; text-align: center; }
-    
     th { background-color: #222 !important; color: #D55E00 !important; text-align: center !important; }
     td { text-align: center !important; }
     </style>
@@ -100,6 +119,19 @@ def show_hand_rankings():
         st.image(image_path, use_container_width=True)
     else:
         st.warning(f"⚠️ 이미지를 찾을 수 없습니다. 깃허브에 '{image_path}' 파일이 제대로 올라가 있는지 확인해주세요.")
+        
+        st.markdown("### 🔥 Top 50 텍스트 요약")
+        df = pd.DataFrame({
+            "순위": ["1~10위", "11~20위", "21~30위", "31~40위", "41~50위"],
+            "핸드 리스트": [
+                "AA, KK, QQ, AKs, JJ, AQs, KQs, AJs, KJs, TT",
+                "AKo, ATs, QJs, KTs, QTs, JTs, 99, AQo, A9s, KQo",
+                "88, K9s, T9s, A8s, Q9s, J9s, AJo, A5s, 77, A7s",
+                "KJo, A4s, A3s, A6s, QJo, 66, K8s, T8s, A2s, 98s",
+                "J8s, ATo, Q8s, K7s, KTo, 55, JTo, 87s, QTo, 44"
+            ]
+        })
+        st.table(df)
 
 # --- 2. 사이드바 (환경 및 스택 설정) ---
 with st.sidebar:
@@ -175,7 +207,6 @@ elif action == "Facing All-in":
     st.markdown("**상대 올인 (BB)**")
     max_val = float(villain_stack) if villain_stack > 1 else 100.0
     
-    # 올인 Max 값 변경 시 동기화 안전장치
     if st.session_state.ai_slider > max_val: st.session_state.ai_slider = max_val
     if st.session_state.ai_box > max_val: st.session_state.ai_box = max_val
 
@@ -222,7 +253,6 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
     hand = f"{v1}{v2}" if is_pair else f"{v1}{v2}{suit}"
 
     equity = calculate_approx_equity(r1, r2, is_pair, is_s)
-    
     env_modifier = -5 if "Live Pub" in env else (5 if "Competition" in env else 0)
 
     analysis = []
