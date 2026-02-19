@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 1. 앱 기본 설정 (반드시 최상단에 위치)
+# 1. 앱 기본 설정
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
 # --- 양방향 동기화(Sync) 로직 & 세션 초기화 ---
@@ -18,28 +18,22 @@ if 'c2_slider' not in st.session_state: st.session_state.c2_slider = "K"
 if 'c2_box' not in st.session_state: st.session_state.c2_box = "K"
 if 'villain_stack_input' not in st.session_state: st.session_state.villain_stack_input = 50.0
 
-# 동기화 콜백 함수들
 def sync_pos_s2b(): st.session_state.pos_box = st.session_state.pos_slider
 def sync_pos_b2s(): st.session_state.pos_slider = st.session_state.pos_box
-
 def sync_raise_s2b(): st.session_state.raise_box = float(st.session_state.raise_slider)
 def sync_raise_b2s(): st.session_state.raise_slider = min(max(st.session_state.raise_box, 2.0), 15.0)
-
 def sync_ai_s2b(): st.session_state.ai_box = float(st.session_state.ai_slider)
 def sync_ai_b2s():
     v_stack = st.session_state.villain_stack_input
     max_val = float(v_stack) if v_stack > 1 else 100.0
     st.session_state.ai_slider = min(max(st.session_state.ai_box, 1.0), max_val)
-
 def sync_c1_s2b(): st.session_state.c1_box = st.session_state.c1_slider
 def sync_c1_b2s(): st.session_state.c1_slider = st.session_state.c1_box
-
 def sync_c2_s2b(): st.session_state.c2_box = st.session_state.c2_slider
 def sync_c2_b2s(): st.session_state.c2_slider = st.session_state.c2_box
 
 # --- 방문자 카운트 로직 ---
 counter_file = "visitor_count.txt"
-
 if 'visited' not in st.session_state:
     st.session_state.visited = True
     if os.path.exists(counter_file):
@@ -47,7 +41,6 @@ if 'visited' not in st.session_state:
             try: count = int(f.read().strip())
             except ValueError: count = 0
     else: count = 0
-    
     count += 1
     with open(counter_file, "w") as f: f.write(str(count))
     st.session_state.v_count = count
@@ -62,45 +55,29 @@ else:
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
-# --- CSS: 적녹색약 배려 & 하이브리드 최적화 ---
+# --- CSS ---
 st.markdown("""
     <style>
-    /* 메인 바탕 및 사이드바 배경 */
     [data-testid="stSidebar"] { background-color: #111; border-right: 3px solid #D55E00; }
-    
-    /* 🚨 [추가] 사이드바 텍스트 색상 대조 (검은 바탕 ↔ 흰 글씨) */
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] label p, 
-    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
-    [data-testid="stSidebar"] [data-testid="stMetricValue"] { 
-        color: #ffffff !important; 
-    }
-    
-    /* 사이드바 상단 버튼(핸드 순위표) 디자인 강조 */
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] label p, [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] { color: #ffffff !important; }
     [data-testid="stSidebar"] button { background-color: #D55E00 !important; border: none !important; }
     [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
-
-    /* 메인 화면 명언 박스 */
+    
     .quote-box { background-color: #222; color: #fff; padding: 10px; border-radius: 8px; border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
     .quote-author { color: #D55E00; font-size: 0.8em; margin-top: 5px; display: block; }
-    
-    /* 메인 화면 타이틀 글씨 (흰 바탕 ↔ 검은 글씨) */
     .big-font { font-size: 1.3em; font-weight: 900; color: #111; margin-top: 15px; margin-bottom: 5px; }
     
-    /* 결과 박스 (색약 안심) */
     .res-box-raise { background-color: #D55E00; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-call { background-color: #0072B2; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
     .res-box-fold { background-color: #333333; color: #BBBBBB; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; border: 2px solid #555; }
     
-    /* AI 분석 패널 */
     .ai-panel { background-color: #1e2630; border-left: 5px solid #00ccff; padding: 15px; border-radius: 5px; margin-top: 10px; }
     .ai-title { color: #00ccff; font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
     .ai-text { color: #d0d0d0; font-size: 0.95em; line-height: 1.5; }
     .highlight-stat { color: #ffeb3b; font-weight: bold; }
     
-    /* 메인 버튼 및 테이블 가독성 */
     div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
     .chart-header { color: #D55E00; font-weight: bold; font-size: 1.1em; margin-top: 25px; margin-bottom: 5px; text-align: center; }
     th { background-color: #222 !important; color: #D55E00 !important; text-align: center !important; }
@@ -108,64 +85,56 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 핸드레인지 순위표 팝업 ---
-@st.dialog("🏆 텍사스 홀덤 프리플랍 핸드 순위 (1~169위)")
-def show_hand_rankings():
-    st.markdown("요청하신 **전체 169개 핸드 순위표**입니다.")
-    st.caption("🟨 포켓(Pocket) | 🟥 수딧(Suited) | 🟦 오프수딧(Off suit)")
-    
-    image_path = "핸드레이지 표.png"
-    if os.path.exists(image_path):
-        st.image(image_path, use_container_width=True)
-    else:
-        st.warning(f"⚠️ 이미지를 찾을 수 없습니다. 깃허브에 '{image_path}' 파일이 제대로 올라가 있는지 확인해주세요.")
-        
-        st.markdown("### 🔥 Top 50 텍스트 요약")
-        df = pd.DataFrame({
-            "순위": ["1~10위", "11~20위", "21~30위", "31~40위", "41~50위"],
-            "핸드 리스트": [
-                "AA, KK, QQ, AKs, JJ, AQs, KQs, AJs, KJs, TT",
-                "AKo, ATs, QJs, KTs, QTs, JTs, 99, AQo, A9s, KQo",
-                "88, K9s, T9s, A8s, Q9s, J9s, AJo, A5s, 77, A7s",
-                "KJo, A4s, A3s, A6s, QJo, 66, K8s, T8s, A2s, 98s",
-                "J8s, ATo, Q8s, K7s, KTo, 55, JTo, 87s, QTo, 44"
-            ]
-        })
-        st.table(df)
-
-# --- 2. 사이드바 (환경 및 스택 설정) ---
+# --- 2. 사이드바 ---
 with st.sidebar:
-    if st.button("🏆 핸드 순위표 (Hand Rankings)", use_container_width=True):
+    # 🌐 다국어 번역 토글
+    st.markdown("### 🌐 Language / 언어")
+    lang = st.radio("Language", ["한국어", "English"], horizontal=True, label_visibility="collapsed")
+    is_kr = (lang == "한국어")
+    
+    st.markdown("---")
+    
+    # 팝업 함수
+    @st.dialog("🏆 텍사스 홀덤 프리플랍 핸드 순위" if is_kr else "🏆 Texas Hold'em Pre-flop Hand Rankings")
+    def show_hand_rankings():
+        st.markdown("요청하신 **전체 169개 핸드 순위표**입니다." if is_kr else "Here is the **Top 169 Hand Rankings**.")
+        st.caption("🟨 포켓(Pocket) | 🟥 수딧(Suited) | 🟦 오프수딧(Off suit)")
+        image_path = "핸드레이지 표.png"
+        if os.path.exists(image_path):
+            st.image(image_path, use_container_width=True)
+        else:
+            st.warning("⚠️ 이미지를 찾을 수 없습니다. (Image not found)")
+
+    if st.button("🏆 핸드 순위표 보기" if is_kr else "🏆 View Hand Rankings", use_container_width=True):
         show_hand_rankings()
         
-    st.header("⚙️ Game Environment")
-    blind_level = st.number_input("Current Big Blind ($/Chips)", min_value=1, value=1000, step=100)
-    st.caption(f"💡 현재 1BB = {blind_level:,}")
+    st.header("⚙️ 게임 환경 설정" if is_kr else "⚙️ Game Environment")
+    blind_level = st.number_input("현재 빅 블라인드 ($/Chips)" if is_kr else "Current Big Blind ($/Chips)", min_value=1, value=1000, step=100)
+    st.caption(f"💡 1BB = {blind_level:,}")
     
     st.markdown("---")
-    st.header("🎯 Range Modifiers")
-    env = st.selectbox("Play Environment", [
-        "Live Pub (Loose/Wide) - 루즈한 방어", 
-        "Online (Standard) - 표준 GTO", 
-        "Competition (Tight) - 타이트한 생존"
-    ], index=1)
+    st.header("🎯 레인지(범위) 설정" if is_kr else "🎯 Range Modifiers")
     
-    mode = st.radio("Game Type", [
-        "Cash Game (Deep/Implied Odds)", 
-        "Tournament (Survival/ICM)"
-    ], index=1)
+    env_options = ["라이브펍 (루즈/와이드)", "온라인 (표준 GTO)", "대회 (타이트/생존)"] if is_kr else ["Live Pub (Loose/Wide)", "Online (Standard)", "Competition (Tight)"]
+    env_idx = env_options.index(st.selectbox("플레이 환경" if is_kr else "Play Environment", env_options, index=1))
+    env_engine = ["Live Pub", "Online", "Competition"][env_idx] # 내부 로직용 고정 변수
+    
+    mode_options = ["캐시 게임 (딥스택/배당 콜)", "토너먼트 (생존/ICM)"] if is_kr else ["Cash Game (Deep/Implied Odds)", "Tournament (Survival/ICM)"]
+    mode_idx = mode_options.index(st.radio("게임 모드" if is_kr else "Game Type", mode_options, index=1))
+    mode_engine = ["Cash Game", "Tournament"][mode_idx]
     
     st.markdown("---")
-    st.header("💰 Stacks (BB)")
-    my_stack = st.number_input("My Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
-    villain_stack = st.number_input("Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0, key="villain_stack_input")
+    st.header("💰 스택 설정 (BB)" if is_kr else "💰 Stacks (BB)")
+    my_stack = st.number_input("나의 스택 (BB)" if is_kr else "My Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
+    villain_stack = st.number_input("상대 스택 (BB)" if is_kr else "Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0, key="villain_stack_input")
     eff_stack = min(my_stack, villain_stack)
-    st.metric("Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩")
+    st.metric("유효 스택" if is_kr else "Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩" if is_kr else f"~ {int(eff_stack * blind_level):,} Chips")
 
     st.markdown("---")
+    visitor_text = "👁️ 누적 방문자 수" if is_kr else "👁️ Total Visitors"
     st.markdown(f"""
     <div style='text-align: center; padding: 15px; background-color: #1e1e1e; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;'>
-        <span style='color: #00ccff; font-weight: bold; font-size: 1.1em;'>👁️ 누적 방문자 수</span><br>
+        <span style='color: #00ccff; font-weight: bold; font-size: 1.1em;'>{visitor_text}</span><br>
         <span style='font-size: 2em; font-weight: 900; color: white;'>{count:,}</span><span style='color: #888; font-size: 0.9em;'> 명</span>
     </div>
     """, unsafe_allow_html=True)
@@ -173,15 +142,15 @@ with st.sidebar:
 # --- 3. 메인 화면 ---
 st.markdown("""
     <div class="quote-box">
-        "한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"
+        "한번 우승했다고 우쭐대지마라 그게 나락으로 가는 지름길이다"<br>
         <span class="quote-author">- 더홀릭 우승 경험자 CBJ -</span>
     </div>
 """, unsafe_allow_html=True)
 
 st.title("🛡️ JM LEGEND 03")
 
-# [1] Position (완벽 동기화 적용)
-st.markdown('<p class="big-font">📍 나의 포지션 (My Position)</p>', unsafe_allow_html=True)
+# [1] Position
+st.markdown(f'<p class="big-font">📍 {"나의 포지션" if is_kr else "My Position"}</p>', unsafe_allow_html=True)
 c_p1, c_p2 = st.columns([3, 1.2])
 with c_p1:
     st.select_slider("Pos Slider", options=pos_list, key="pos_slider", on_change=sync_pos_s2b, label_visibility="collapsed")
@@ -190,12 +159,15 @@ with c_p2:
 final_pos = st.session_state.pos_box 
 
 # [2] Action
-st.markdown('<p class="big-font">⚔️ Action</p>', unsafe_allow_html=True)
-action = st.radio("Act", ["Unopened", "Facing Raise", "Facing All-in"], horizontal=True, label_visibility="collapsed")
+st.markdown(f'<p class="big-font">⚔️ {"상황 (Action)" if is_kr else "Action"}</p>', unsafe_allow_html=True)
+act_options = ["오픈 전 (Unopened)", "상대 레이즈 (Facing Raise)", "상대 올인 (Facing All-in)"] if is_kr else ["Unopened", "Facing Raise", "Facing All-in"]
+act_idx = act_options.index(st.radio("Act", act_options, horizontal=True, label_visibility="collapsed"))
+act_engine = ["Unopened", "Facing Raise", "Facing All-in"][act_idx]
+
 final_amt = 0.0
 
-if action == "Facing Raise":
-    st.markdown("**상대 레이즈 (BB)**")
+if act_engine == "Facing Raise":
+    st.markdown(f"**{'상대 레이즈 (BB)' if is_kr else 'Opponent Raise (BB)'}**")
     c_r1, c_r2 = st.columns([2.5, 1.5])
     with c_r1:
         st.slider("Raise Slider", 2.0, 15.0, step=0.5, key="raise_slider", on_change=sync_raise_s2b, label_visibility="collapsed")
@@ -203,10 +175,9 @@ if action == "Facing Raise":
         st.number_input("Raise Input", 0.0, 1000.0, step=0.5, key="raise_box", on_change=sync_raise_b2s, label_visibility="collapsed")
     final_amt = st.session_state.raise_box
 
-elif action == "Facing All-in":
-    st.markdown("**상대 올인 (BB)**")
+elif act_engine == "Facing All-in":
+    st.markdown(f"**{'상대 올인 (BB)' if is_kr else 'Opponent All-in (BB)'}**")
     max_val = float(villain_stack) if villain_stack > 1 else 100.0
-    
     if st.session_state.ai_slider > max_val: st.session_state.ai_slider = max_val
     if st.session_state.ai_box > max_val: st.session_state.ai_box = max_val
 
@@ -219,8 +190,8 @@ elif action == "Facing All-in":
 
 st.divider()
 
-# [3] Hand (완벽 동기화 적용)
-st.markdown('<p class="big-font">🃏 나의 핸드 (My Hand)</p>', unsafe_allow_html=True)
+# [3] Hand
+st.markdown(f'<p class="big-font">🃏 {"나의 핸드 (My Hand)" if is_kr else "My Hand"}</p>', unsafe_allow_html=True)
 c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
 with c1_col:
     st.select_slider("C1 Slider", cards, key="c1_slider", on_change=sync_c1_s2b, label_visibility="collapsed")
@@ -231,8 +202,9 @@ with c2_col:
     st.selectbox("C2 Box", cards, key="c2_box", on_change=sync_c2_b2s, label_visibility="collapsed")
     v2 = st.session_state.c2_box
 with s_col:
-    suit_radio = st.radio("S", ["s (수딧)", "o (오프)"], horizontal=True, label_visibility="collapsed")
-    suit = "s" if "s" in suit_radio else "o"
+    suit_options = ["s (수딧)", "o (오프)"] if is_kr else ["s (Suited)", "o (Off-suit)"]
+    suit_idx = suit_options.index(st.radio("S", suit_options, horizontal=True, label_visibility="collapsed"))
+    suit_engine = "s" if suit_idx == 0 else "o"
 
 # --- 4. MASTER AI EQUITY & ODDS ENGINE ---
 def calculate_approx_equity(r1, r2, is_pair, is_s):
@@ -242,18 +214,16 @@ def calculate_approx_equity(r1, r2, is_pair, is_s):
     if r1 - r2 == 1: base += 3
     return min(85.0, max(25.0, base))
 
-def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt):
+def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt, is_kr):
     rk = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = rk[v1], rk[v2]
-    
     if r1 < r2: v1, v2, r1, r2 = v2, v1, r2, r1
-        
     is_pair = (v1 == v2)
     is_s = (suit == "s")
     hand = f"{v1}{v2}" if is_pair else f"{v1}{v2}{suit}"
 
     equity = calculate_approx_equity(r1, r2, is_pair, is_s)
-    env_modifier = -5 if "Live Pub" in env else (5 if "Competition" in env else 0)
+    env_modifier = -5 if env == "Live Pub" else (5 if env == "Competition" else 0)
 
     analysis = []
     decision = "FOLD"
@@ -261,70 +231,74 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
     if act == "Unopened":
         base_req = {"MP": 50, "LJ": 50, "HJ": 45, "CO": 45, "BTN": 40, "SB": 40}.get(pos, 55)
         req_equity = base_req + env_modifier
-        analysis.append(f"이 핸드의 추정 승률(Equity)은 <span class='highlight-stat'>{equity:.1f}%</span> 입니다.")
+        
+        if is_kr: analysis.append(f"이 핸드의 추정 승률(Equity)은 <span class='highlight-stat'>{equity:.1f}%</span> 입니다.")
+        else: analysis.append(f"Estimated Equity of this hand is <span class='highlight-stat'>{equity:.1f}%</span>.")
         
         if h_stack <= 15:
             if equity >= 48:
                 decision = "RAISE"
-                analysis.append(f"스택이 15BB 이하이므로, 오픈 대신 <b>올인(Push)</b>을 통해 폴드 에퀴티를 극대화해야 합니다.")
+                analysis.append("스택이 15BB 이하이므로, 오픈 대신 <b>올인(Push)</b>을 통해 폴드 에퀴티를 극대화해야 합니다." if is_kr else "Stack is under 15BB. Maximize fold equity by pushing <b>All-in</b>.")
             else:
                 decision = "FOLD"
-                analysis.append("숏스택 상황에서 승부하기엔 에퀴티가 낮아 칩을 보존(Fold)해야 합니다.")
+                analysis.append("숏스택 상황에서 승부하기엔 에퀴티가 낮아 칩을 보존(Fold)해야 합니다." if is_kr else "Equity is too low for a short-stack shove. Fold and preserve chips.")
         elif equity >= req_equity:
             decision = "RAISE"
-            analysis.append(f"현재 나의 포지션({pos})의 오픈 최소 요구치({req_equity}%)를 상회하므로 수익성 있는 <b>레이즈(Raise)</b> 구간입니다.")
+            analysis.append(f"현재 포지션({pos})의 오픈 최소 요구치({req_equity}%)를 상회하므로 수익성 있는 <b>레이즈(Raise)</b> 구간입니다." if is_kr else f"Exceeds minimum equity requirement ({req_equity}%) for {pos}. Profitable <b>Raise</b> spot.")
         else:
             decision = "FOLD"
-            analysis.append(f"현재 나의 포지션({pos})에서 먼저 팟을 열기에는 너무 약한 핸드(Fold)입니다.")
+            analysis.append(f"현재 포지션({pos})에서 먼저 팟을 열기에는 너무 약한 핸드(Fold)입니다." if is_kr else f"Hand is too weak to open from {pos}. Fold.")
 
     elif act == "Facing All-in":
-        call_amt = amt
-        pot_size = amt + 1.5 
-        pot_odds = (call_amt / (pot_size + call_amt)) * 100
+        pot_odds = (amt / (amt + 1.5 + amt)) * 100
         
-        analysis.append(f"내 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 요구 팟 오즈: <span class='highlight-stat'>{pot_odds:.1f}%</span>")
-        call_margin = 7 if "Tournament" in mode else 2
+        if is_kr: analysis.append(f"내 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 요구 팟 오즈: <span class='highlight-stat'>{pot_odds:.1f}%</span>")
+        else: analysis.append(f"Hand Equity: <span class='highlight-stat'>{equity:.1f}%</span> / Required Pot Odds: <span class='highlight-stat'>{pot_odds:.1f}%</span>")
+        
+        call_margin = 7 if mode == "Tournament" else 2
         
         if equity >= (pot_odds + call_margin):
             decision = "CALL"
-            analysis.append(f"내 핸드의 승률({equity:.1f}%)이 요구 배당({pot_odds:.1f}%)보다 높으므로 수학적으로 <b>장기적 수익(+EV)이 나는 콜(Call)</b>입니다.")
+            analysis.append(f"수학적으로 <b>장기적 수익(+EV)이 나는 콜(Call)</b>입니다." if is_kr else "Mathematically a <b>profitable (+EV) Call</b> in the long run.")
         else:
             decision = "FOLD"
-            analysis.append(f"승률보다 요구 배당이 높아 <b>손해(-EV)를 보는 구간</b>입니다. 폴드하십시오.")
-            if "Tournament" in mode: analysis.append("특히 토너먼트는 목숨(ICM)이 걸려있으므로 확실한 우위가 아니면 피해야 합니다.")
+            analysis.append(f"요구 배당이 더 높아 <b>손해(-EV)를 보는 구간</b>입니다. 폴드하십시오." if is_kr else "Required odds are higher than equity. This is a <b>-EV Spot</b>. Fold.")
+            if mode == "Tournament":
+                analysis.append("특히 토너먼트는 목숨(ICM)이 걸려있으므로 확실한 우위가 아니면 피해야 합니다." if is_kr else "In tournaments, preserve your tournament life (ICM) unless holding a clear advantage.")
 
     elif act == "Facing Raise":
         if hand in ["AA", "KK", "QQ", "AKs", "AKo"]:
             decision = "RAISE"
-            analysis.append("최상위 프리미엄 핸드입니다. 무조건 <b>3-Bet(리레이즈)</b>을 통해 팟을 키우고 상대의 밸류를 뽑아내야 합니다.")
+            analysis.append("최상위 프리미엄 핸드입니다. 무조건 <b>3-Bet(리레이즈)</b>을 통해 판을 키우세요." if is_kr else "Absolute Premium Hand. Must <b>3-Bet (Re-raise)</b> to build the pot.")
         else:
             def_req = 48 + env_modifier
             if pos == "BB": def_req -= 8 
             if amt >= 6.0: 
                 def_req += 15 
-                analysis.append(f"상대가 {amt}BB의 큰 레이즈를 했습니다. 매우 강력한 레인지로 압축해야 합니다.")
+                analysis.append(f"상대가 {amt}BB의 큰 레이즈를 했습니다. 매우 강력한 레인지로 압축해야 합니다." if is_kr else f"Opponent made a huge raise ({amt}BB). Narrow down to a very strong range.")
                 
-            analysis.append(f"현재 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 방어 컷오프: <span class='highlight-stat'>{def_req:.1f}%</span>")
+            if is_kr: analysis.append(f"현재 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 방어 컷오프: <span class='highlight-stat'>{def_req:.1f}%</span>")
+            else: analysis.append(f"Current Equity: <span class='highlight-stat'>{equity:.1f}%</span> / Defense Cutoff: <span class='highlight-stat'>{def_req:.1f}%</span>")
             
             if equity >= def_req + 10:
                 decision = "RAISE"
-                analysis.append("상대의 레이즈 레인지를 압도합니다. 주도권을 뺏는 <b>3-Bet(레이즈)</b>이 정석입니다.")
+                analysis.append("상대의 레이즈 레인지를 압도합니다. 주도권을 뺏는 <b>3-Bet(레이즈)</b>이 정석입니다." if is_kr else "Dominates opponent's raising range. <b>3-Bet</b> to take the initiative.")
             elif equity >= def_req:
                 decision = "CALL"
-                if "Live Pub" in env and is_s:
-                    analysis.append("라이브펍 특성상 멀티웨이 팟이 자주 나오므로 수딧/커넥터 류의 <b>배당 콜(Call)</b>이 매우 유리합니다.")
-                elif "Cash" in mode and is_pair and r1 < 10 and (e_stack/amt) >= 20:
-                    analysis.append("캐시게임 딥스택 <b>셋마이닝(Set Mining)</b> 조건이 성립합니다. 콜을 받고 셋을 맞추러 갑니다.")
+                if env == "Live Pub" and is_s:
+                    analysis.append("라이브펍 특성상 멀티웨이 팟이 자주 나오므로 수딧/커넥터 류의 <b>배당 콜(Call)</b>이 매우 유리합니다." if is_kr else "Live Pubs feature multi-way pots. <b>Calling</b> with suited/connectors is highly profitable.")
+                elif mode == "Cash Game" and is_pair and r1 < 10 and (e_stack/amt) >= 20:
+                    analysis.append("캐시게임 딥스택 <b>셋마이닝(Set Mining)</b> 조건이 성립합니다. 콜을 받고 셋을 맞추러 갑니다." if is_kr else "Deep stack <b>Set Mining</b> conditions met. Call to hit a set.")
                 else:
-                    analysis.append("적절한 에퀴티를 보유하여 <b>방어(Call)</b> 후 포스트플랍 운영을 추천합니다.")
+                    analysis.append("적절한 에퀴티를 보유하여 <b>방어(Call)</b> 후 포스트플랍 운영을 추천합니다." if is_kr else "Adequate equity to <b>Defend (Call)</b>. Proceed to post-flop.")
             else:
                 decision = "FOLD"
-                analysis.append("상대의 레이즈에 도미네잇(Dominated) 당할 확률이 높습니다. <b>미련 없이 폴드(Fold)</b>하세요.")
+                analysis.append("상대의 레이즈에 도미네잇(Dominated) 당할 확률이 높습니다. <b>폴드(Fold)</b>하세요." if is_kr else "High chance of being dominated. <b>Fold</b> immediately.")
 
     return decision, "<br>".join(analysis)
 
 # --- 5. 결과 출력 ---
-decision, reason_html = run_master_analysis(mode, env, final_pos, v1, v2, suit, action, my_stack, eff_stack, final_amt)
+decision, reason_html = run_master_analysis(mode_engine, env_engine, final_pos, v1, v2, suit_engine, act_engine, my_stack, eff_stack, final_amt, is_kr)
 
 st.divider()
 if decision == "RAISE":
@@ -334,7 +308,6 @@ elif decision == "CALL":
 else:
     st.markdown(f'<div class="res-box-fold">{decision}</div>', unsafe_allow_html=True)
 
-# 💡 상세 분석 패널
 st.markdown(f"""
 <div class="ai-panel">
     <div class="ai-title">🤖 AI Agent Analysis Report</div>
@@ -344,8 +317,7 @@ st.markdown(f"""
 
 # --- 6. 하단 GTO 고정 차트 ---
 st.markdown("---")
-st.markdown('<p class="chart-header">🚀 15BB Nash Equilibrium (Short Stack Push)</p>', unsafe_allow_html=True)
-st.caption("※ 숏스택(소액 BB 소유) 시 포지션별 완벽한 올인 레인지입니다.")
+st.markdown(f'<p class="chart-header">🚀 15BB Nash Equilibrium (Short Stack Push)</p>', unsafe_allow_html=True)
 st.table(pd.DataFrame({
     "Position": ["UTG / EP", "MP / HJ", "CO", "BTN", "SB"],
     "All-in Range": [
@@ -357,10 +329,8 @@ st.table(pd.DataFrame({
     ]
 }))
 
-st.markdown('<p class="chart-header">📊 100BB GTO RFI (Standard Range)</p>', unsafe_allow_html=True)
-st.caption("※ 정상 스택 포지션별 정석 오픈(Raise First In) 레인지입니다.")
+st.markdown(f'<p class="chart-header">📊 100BB GTO RFI (Standard Range)</p>', unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["Early (UTG/MP)", "Late (CO/BTN)", "Blinds (SB)"])
-
 with tab1:
     st.table(pd.DataFrame({
         "Pos": ["UTG", "MP"],
