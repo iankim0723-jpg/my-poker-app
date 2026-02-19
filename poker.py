@@ -5,6 +5,42 @@ import os
 # 1. 앱 기본 설정 (반드시 최상단에 위치)
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
+# --- 데이터 정의 ---
+pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
+cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
+
+# --- [추가] 양방향 동기화(Sync) 로직 & 세션 초기화 ---
+if 'pos_slider' not in st.session_state: st.session_state.pos_slider = "BTN"
+if 'pos_box' not in st.session_state: st.session_state.pos_box = "BTN"
+if 'raise_slider' not in st.session_state: st.session_state.raise_slider = 2.5
+if 'raise_box' not in st.session_state: st.session_state.raise_box = 2.5
+if 'ai_slider' not in st.session_state: st.session_state.ai_slider = 25.0
+if 'ai_box' not in st.session_state: st.session_state.ai_box = 25.0
+if 'c1_slider' not in st.session_state: st.session_state.c1_slider = "A"
+if 'c1_box' not in st.session_state: st.session_state.c1_box = "A"
+if 'c2_slider' not in st.session_state: st.session_state.c2_slider = "K"
+if 'c2_box' not in st.session_state: st.session_state.c2_box = "K"
+if 'villain_stack_input' not in st.session_state: st.session_state.villain_stack_input = 50.0
+
+# 동기화 콜백 함수들
+def sync_pos_s2b(): st.session_state.pos_box = st.session_state.pos_slider
+def sync_pos_b2s(): st.session_state.pos_slider = st.session_state.pos_box
+
+def sync_raise_s2b(): st.session_state.raise_box = float(st.session_state.raise_slider)
+def sync_raise_b2s(): st.session_state.raise_slider = min(max(st.session_state.raise_box, 2.0), 15.0)
+
+def sync_ai_s2b(): st.session_state.ai_box = float(st.session_state.ai_slider)
+def sync_ai_b2s():
+    v_stack = st.session_state.villain_stack_input
+    max_val = float(v_stack) if v_stack > 1 else 100.0
+    st.session_state.ai_slider = min(max(st.session_state.ai_box, 1.0), max_val)
+
+def sync_c1_s2b(): st.session_state.c1_box = st.session_state.c1_slider
+def sync_c1_b2s(): st.session_state.c1_slider = st.session_state.c1_box
+
+def sync_c2_s2b(): st.session_state.c2_box = st.session_state.c2_slider
+def sync_c2_b2s(): st.session_state.c2_slider = st.session_state.c2_box
+
 # --- 방문자 카운트 로직 ---
 counter_file = "visitor_count.txt"
 
@@ -12,30 +48,19 @@ if 'visited' not in st.session_state:
     st.session_state.visited = True
     if os.path.exists(counter_file):
         with open(counter_file, "r") as f:
-            try:
-                count = int(f.read().strip())
-            except ValueError:
-                count = 0
-    else:
-        count = 0
+            try: count = int(f.read().strip())
+            except ValueError: count = 0
+    else: count = 0
     
     count += 1
-    with open(counter_file, "w") as f:
-        f.write(str(count))
+    with open(counter_file, "w") as f: f.write(str(count))
     st.session_state.v_count = count
 else:
     if os.path.exists(counter_file):
         with open(counter_file, "r") as f:
-            try:
-                count = int(f.read().strip())
-            except ValueError:
-                count = st.session_state.v_count
-    else:
-        count = st.session_state.v_count
-
-# --- 데이터 정의 ---
-pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
-cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
+            try: count = int(f.read().strip())
+            except ValueError: count = st.session_state.v_count
+    else: count = st.session_state.v_count
 
 # --- CSS: 적녹색약 배려 & 하이브리드 최적화 ---
 st.markdown("""
@@ -44,7 +69,7 @@ st.markdown("""
     .quote-box { background-color: #222; color: #fff; padding: 10px; border-radius: 8px; border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
     .quote-author { color: #D55E00; font-size: 0.8em; margin-top: 5px; display: block; }
     
-    /* 🚨 [수정됨] 흰색 바탕에 가장 대조되는 검정색(#111)으로 타이틀 글씨 색상 변경 */
+    /* 🚨 흰색 바탕에 가장 대조되는 검정색(#111)으로 타이틀 글씨 색상 유지 */
     .big-font { font-size: 1.3em; font-weight: 900; color: #111; margin-top: 15px; margin-bottom: 5px; }
     
     .res-box-raise { background-color: #D55E00; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
@@ -75,19 +100,6 @@ def show_hand_rankings():
         st.image(image_path, use_container_width=True)
     else:
         st.warning(f"⚠️ 이미지를 찾을 수 없습니다. 깃허브에 '{image_path}' 파일이 제대로 올라가 있는지 확인해주세요.")
-        
-        st.markdown("### 🔥 Top 50 텍스트 요약")
-        df = pd.DataFrame({
-            "순위": ["1~10위", "11~20위", "21~30위", "31~40위", "41~50위"],
-            "핸드 리스트": [
-                "AA, KK, QQ, AKs, JJ, AQs, KQs, AJs, KJs, TT",
-                "AKo, ATs, QJs, KTs, QTs, JTs, 99, AQo, A9s, KQo",
-                "88, K9s, T9s, A8s, Q9s, J9s, AJo, A5s, 77, A7s",
-                "KJo, A4s, A3s, A6s, QJo, 66, K8s, T8s, A2s, 98s",
-                "J8s, ATo, Q8s, K7s, KTo, 55, JTo, 87s, QTo, 44"
-            ]
-        })
-        st.table(df)
 
 # --- 2. 사이드바 (환경 및 스택 설정) ---
 with st.sidebar:
@@ -114,7 +126,7 @@ with st.sidebar:
     st.markdown("---")
     st.header("💰 Stacks (BB)")
     my_stack = st.number_input("My Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
-    villain_stack = st.number_input("Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0)
+    villain_stack = st.number_input("Villain Stack (BB)", 1.0, 1000.0, 50.0, step=1.0, key="villain_stack_input")
     eff_stack = min(my_stack, villain_stack)
     st.metric("Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩")
 
@@ -136,14 +148,14 @@ st.markdown("""
 
 st.title("🛡️ JM LEGEND 03")
 
-# [1] Position (Hybrid)
+# [1] Position (완벽 동기화 적용)
 st.markdown('<p class="big-font">📍 나의 포지션 (My Position)</p>', unsafe_allow_html=True)
 c_p1, c_p2 = st.columns([3, 1.2])
 with c_p1:
-    pos_slider = st.select_slider("Pos Slider", options=pos_list, value="BTN", label_visibility="collapsed")
+    st.select_slider("Pos Slider", options=pos_list, key="pos_slider", on_change=sync_pos_s2b, label_visibility="collapsed")
 with c_p2:
-    pos_box = st.selectbox("Pos Box", options=pos_list, index=pos_list.index(pos_slider), label_visibility="collapsed")
-final_pos = pos_box 
+    st.selectbox("Pos Box", options=pos_list, key="pos_box", on_change=sync_pos_b2s, label_visibility="collapsed")
+final_pos = st.session_state.pos_box 
 
 # [2] Action
 st.markdown('<p class="big-font">⚔️ Action</p>', unsafe_allow_html=True)
@@ -154,86 +166,70 @@ if action == "Facing Raise":
     st.markdown("**상대 레이즈 (BB)**")
     c_r1, c_r2 = st.columns([2.5, 1.5])
     with c_r1:
-        val_slider = st.slider("Raise Slider", 2.0, 15.0, 2.5, 0.5, label_visibility="collapsed")
+        st.slider("Raise Slider", 2.0, 15.0, step=0.5, key="raise_slider", on_change=sync_raise_s2b, label_visibility="collapsed")
     with c_r2:
-        val_input = st.number_input("Raise Input", 0.0, 1000.0, val_slider, step=0.5, label_visibility="collapsed")
-    final_amt = val_input
+        st.number_input("Raise Input", 0.0, 1000.0, step=0.5, key="raise_box", on_change=sync_raise_b2s, label_visibility="collapsed")
+    final_amt = st.session_state.raise_box
 
 elif action == "Facing All-in":
     st.markdown("**상대 올인 (BB)**")
-    max_val = float(villain_stack)
+    max_val = float(villain_stack) if villain_stack > 1 else 100.0
+    
+    # 올인 Max 값 변경 시 동기화 안전장치
+    if st.session_state.ai_slider > max_val: st.session_state.ai_slider = max_val
+    if st.session_state.ai_box > max_val: st.session_state.ai_box = max_val
+
     c_a1, c_a2 = st.columns([2, 2])
     with c_a1:
-        val_slider = st.slider("AI Slider", 1.0, max_val if max_val > 1 else 100.0, max_val/2, label_visibility="collapsed")
+        st.slider("AI Slider", 1.0, max_val, key="ai_slider", on_change=sync_ai_s2b, label_visibility="collapsed")
     with c_a2:
-        val_input = st.number_input("AI Input", 1.0, 1000.0, val_slider, label_visibility="collapsed")
-    final_amt = val_input
+        st.number_input("AI Input", 1.0, 1000.0, key="ai_box", on_change=sync_ai_b2s, label_visibility="collapsed")
+    final_amt = st.session_state.ai_box
 
 st.divider()
 
-# [3] Hand
+# [3] Hand (완벽 동기화 적용)
 st.markdown('<p class="big-font">🃏 나의 핸드 (My Hand)</p>', unsafe_allow_html=True)
 c1_col, c2_col, s_col = st.columns([2.5, 2.5, 1.5])
 with c1_col:
-    v1_slider = st.select_slider("C1", cards, value="A", label_visibility="collapsed")
-    v1 = st.selectbox("C1 Box", cards, index=cards.index(v1_slider), label_visibility="collapsed")
+    st.select_slider("C1 Slider", cards, key="c1_slider", on_change=sync_c1_s2b, label_visibility="collapsed")
+    st.selectbox("C1 Box", cards, key="c1_box", on_change=sync_c1_b2s, label_visibility="collapsed")
+    v1 = st.session_state.c1_box
 with c2_col:
-    v2_slider = st.select_slider("C2", cards, value="K", label_visibility="collapsed")
-    v2 = st.selectbox("C2 Box", cards, index=cards.index(v2_slider), label_visibility="collapsed")
+    st.select_slider("C2 Slider", cards, key="c2_slider", on_change=sync_c2_s2b, label_visibility="collapsed")
+    st.selectbox("C2 Box", cards, key="c2_box", on_change=sync_c2_b2s, label_visibility="collapsed")
+    v2 = st.session_state.c2_box
 with s_col:
     suit_radio = st.radio("S", ["s (수딧)", "o (오프)"], horizontal=True, label_visibility="collapsed")
-    if "s" in suit_radio:
-        suit = "s"
-    else:
-        suit = "o"
+    suit = "s" if "s" in suit_radio else "o"
 
 # --- 4. MASTER AI EQUITY & ODDS ENGINE ---
 def calculate_approx_equity(r1, r2, is_pair, is_s):
     base = (r1 + r2) * 1.5
-    if is_pair:
-        base = 50 + (r1 * 2.5) 
-    if is_s:
-        base += 5
-    if r1 - r2 == 1:
-        base += 3
+    if is_pair: base = 50 + (r1 * 2.5) 
+    if is_s: base += 5
+    if r1 - r2 == 1: base += 3
     return min(85.0, max(25.0, base))
 
 def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt):
     rk = {"A":14, "K":13, "Q":12, "J":11, "T":10, "9":9, "8":8, "7":7, "6":6, "5":5, "4":4, "3":3, "2":2}
     r1, r2 = rk[v1], rk[v2]
     
-    if r1 < r2:
-        v1, v2 = v2, v1
-        r1, r2 = r2, r1
+    if r1 < r2: v1, v2, r1, r2 = v2, v1, r2, r1
         
     is_pair = (v1 == v2)
     is_s = (suit == "s")
-    
-    if is_pair:
-        hand = f"{v1}{v2}"
-    else:
-        hand = f"{v1}{v2}{suit}"
+    hand = f"{v1}{v2}" if is_pair else f"{v1}{v2}{suit}"
 
     equity = calculate_approx_equity(r1, r2, is_pair, is_s)
     
-    env_modifier = 0
-    if "Live Pub" in env:
-        env_modifier = -5
-    elif "Competition" in env:
-        env_modifier = 5
+    env_modifier = -5 if "Live Pub" in env else (5 if "Competition" in env else 0)
 
     analysis = []
     decision = "FOLD"
     
     if act == "Unopened":
-        base_req = 55
-        if pos in ["MP", "LJ"]:
-            base_req = 50
-        elif pos in ["HJ", "CO"]:
-            base_req = 45
-        elif pos in ["BTN", "SB"]:
-            base_req = 40
-        
+        base_req = {"MP": 50, "LJ": 50, "HJ": 45, "CO": 45, "BTN": 40, "SB": 40}.get(pos, 55)
         req_equity = base_req + env_modifier
         analysis.append(f"이 핸드의 추정 승률(Equity)은 <span class='highlight-stat'>{equity:.1f}%</span> 입니다.")
         
@@ -257,10 +253,7 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
         pot_odds = (call_amt / (pot_size + call_amt)) * 100
         
         analysis.append(f"내 핸드 에퀴티: <span class='highlight-stat'>{equity:.1f}%</span> / 요구 팟 오즈: <span class='highlight-stat'>{pot_odds:.1f}%</span>")
-        
-        call_margin = 2
-        if "Tournament" in mode:
-            call_margin = 7 
+        call_margin = 7 if "Tournament" in mode else 2
         
         if equity >= (pot_odds + call_margin):
             decision = "CALL"
@@ -268,8 +261,7 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
         else:
             decision = "FOLD"
             analysis.append(f"승률보다 요구 배당이 높아 <b>손해(-EV)를 보는 구간</b>입니다. 폴드하십시오.")
-            if "Tournament" in mode:
-                analysis.append("특히 토너먼트는 목숨(ICM)이 걸려있으므로 확실한 우위가 아니면 피해야 합니다.")
+            if "Tournament" in mode: analysis.append("특히 토너먼트는 목숨(ICM)이 걸려있으므로 확실한 우위가 아니면 피해야 합니다.")
 
     elif act == "Facing Raise":
         if hand in ["AA", "KK", "QQ", "AKs", "AKo"]:
@@ -277,9 +269,7 @@ def run_master_analysis(mode, env, pos, v1, v2, suit, act, h_stack, e_stack, amt
             analysis.append("최상위 프리미엄 핸드입니다. 무조건 <b>3-Bet(리레이즈)</b>을 통해 팟을 키우고 상대의 밸류를 뽑아내야 합니다.")
         else:
             def_req = 48 + env_modifier
-            if pos == "BB":
-                def_req -= 8 
-            
+            if pos == "BB": def_req -= 8 
             if amt >= 6.0: 
                 def_req += 15 
                 analysis.append(f"상대가 {amt}BB의 큰 레이즈를 했습니다. 매우 강력한 레인지로 압축해야 합니다.")
