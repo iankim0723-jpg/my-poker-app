@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 1. 앱 기본 설정
+# 1. 앱 기본 설정 (반드시 최상단에 위치)
 st.set_page_config(page_title="JM LEGEND 03 (Master Agent)", page_icon="📈", layout="centered")
 
 # --- 양방향 동기화(Sync) 로직 & 세션 초기화 ---
@@ -16,7 +16,6 @@ if 'c1_slider' not in st.session_state: st.session_state.c1_slider = "A"
 if 'c1_box' not in st.session_state: st.session_state.c1_box = "A"
 if 'c2_slider' not in st.session_state: st.session_state.c2_slider = "K"
 if 'c2_box' not in st.session_state: st.session_state.c2_box = "K"
-# [수정됨] 단일 시작 스택으로 세션 상태 통합
 if 'start_stack_input' not in st.session_state: st.session_state.start_stack_input = 50.0
 
 def sync_pos_s2b(): st.session_state.pos_box = st.session_state.pos_slider
@@ -56,33 +55,59 @@ else:
 pos_list = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN", "SB", "BB"]
 cards = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"]
 
-# --- CSS ---
+# --- 🚨 [강력 수정] 글씨색/배경색 절대 강제 고정 CSS ---
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] { background-color: #111; border-right: 3px solid #D55E00; }
+    /* 1. 메인 화면(라이트 모드 강제): 흰 배경 + 검정 글씨 */
+    .stApp { background-color: #ffffff !important; }
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, 
+    .stApp p, .stApp label, .stApp span, .stApp div[data-baseweb="base-input"] { 
+        color: #111111 !important; 
+    }
+
+    /* 2. 사이드바(다크 모드 강제): 검정 배경 + 흰 글씨 */
+    [data-testid="stSidebar"] { background-color: #111111 !important; border-right: 3px solid #D55E00 !important; }
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] label p, [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
-    [data-testid="stSidebar"] [data-testid="stMetricValue"] { color: #ffffff !important; }
-    [data-testid="stSidebar"] button { background-color: #D55E00 !important; border: none !important; }
-    [data-testid="stSidebar"] button p { color: #ffffff !important; font-weight: bold !important; }
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] { 
+        color: #ffffff !important; 
+    }
+
+    /* 3. 예외 1: 명언 박스 (검정 바탕 + 흰/주황 글씨) */
+    .quote-box { background-color: #222222 !important; border: 2px solid #D55E00 !important; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; }
+    .quote-box, .quote-box p, .quote-box span { color: #ffffff !important; font-weight: bold !important; font-size: 0.9em !important; }
+    .quote-author, .quote-author span { color: #D55E00 !important; font-size: 0.8em !important; margin-top: 5px; display: block; }
     
-    .quote-box { background-color: #222; color: #fff; padding: 10px; border-radius: 8px; border: 2px solid #D55E00; text-align: center; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
-    .quote-author { color: #D55E00; font-size: 0.8em; margin-top: 5px; display: block; }
-    .big-font { font-size: 1.3em; font-weight: 900; color: #111; margin-top: 15px; margin-bottom: 5px; }
+    /* 4. 예외 2: 결과 액션 박스 (고유 배경색 + 텍스트 컬러 유지) */
+    .res-box-raise, .res-box-raise p, .res-box-raise span { background-color: #D55E00 !important; color: #ffffff !important; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em !important; font-weight: bold !important; margin: 10px 0; }
+    .res-box-call, .res-box-call p, .res-box-call span { background-color: #0072B2 !important; color: #ffffff !important; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em !important; font-weight: bold !important; margin: 10px 0; }
+    .res-box-fold, .res-box-fold p, .res-box-fold span { background-color: #333333 !important; color: #BBBBBB !important; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em !important; font-weight: bold !important; margin: 10px 0; border: 2px solid #555 !important; }
     
-    .res-box-raise { background-color: #D55E00; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
-    .res-box-call { background-color: #0072B2; color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; }
-    .res-box-fold { background-color: #333333; color: #BBBBBB; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 10px 0; border: 2px solid #555; }
-    
-    .ai-panel { background-color: #1e2630; border-left: 5px solid #00ccff; padding: 15px; border-radius: 5px; margin-top: 10px; }
-    .ai-title { color: #00ccff; font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
-    .ai-text { color: #d0d0d0; font-size: 0.95em; line-height: 1.5; }
-    .highlight-stat { color: #ffeb3b; font-weight: bold; }
-    
+    /* 5. 예외 3: AI 분석 리포트 박스 */
+    .ai-panel { background-color: #1e2630 !important; border-left: 5px solid #00ccff !important; padding: 15px; border-radius: 5px; margin-top: 10px; }
+    .ai-panel p, .ai-panel span { color: #d0d0d0 !important; font-size: 0.95em !important; line-height: 1.5 !important; }
+    .ai-title, .ai-title span { color: #00ccff !important; font-weight: bold !important; font-size: 1.1em !important; margin-bottom: 8px; }
+    .highlight-stat, .highlight-stat span { color: #ffeb3b !important; font-weight: bold !important; }
+
+    /* 공통 위젯 스타일 조정 */
     div.stButton > button { width: 100%; height: 60px; font-size: 1.2em; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
-    .chart-header { color: #D55E00; font-weight: bold; font-size: 1.1em; margin-top: 25px; margin-bottom: 5px; text-align: center; }
-    th { background-color: #222 !important; color: #D55E00 !important; text-align: center !important; }
-    td { text-align: center !important; }
+    [data-testid="stSidebar"] button { background-color: #D55E00 !important; border: none !important; }
+    [data-testid="stSidebar"] button p, [data-testid="stSidebar"] button span { color: #ffffff !important; }
+
+    /* 메인 타이틀용 커스텀 클래스 */
+    .big-font { font-size: 1.3em !important; font-weight: 900 !important; color: #111111 !important; margin-top: 15px; margin-bottom: 5px; }
+    
+    /* 차트 및 테이블 스타일 */
+    .chart-header { color: #D55E00 !important; font-weight: bold !important; font-size: 1.1em !important; margin-top: 25px; margin-bottom: 5px; text-align: center; }
+    th { background-color: #222222 !important; color: #D55E00 !important; text-align: center !important; }
+    td { background-color: #ffffff !important; color: #111111 !important; text-align: center !important; border: 1px solid #dddddd !important; }
+    
+    /* 탭 메뉴 스타일 */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent !important; }
+    .stTabs [data-baseweb="tab"] { background-color: #eeeeee !important; }
+    .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span { color: #111111 !important; font-weight: bold !important; }
+    .stTabs [aria-selected="true"] { background-color: #D55E00 !important; }
+    .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span { color: #ffffff !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -123,10 +148,9 @@ with st.sidebar:
     mode_engine = ["Cash Game", "Tournament"][mode_idx]
     
     st.markdown("---")
-    # [수정됨] 스택 입력을 시작 스택(Start Stack) 하나로 단순화
     st.header("💰 시작 스택 설정" if is_kr else "💰 Start Stack Setup")
     start_stack = st.number_input("시작 스택 (BB)" if is_kr else "Start Stack (BB)", 1.0, 1000.0, 50.0, step=1.0, key="start_stack_input")
-    eff_stack = start_stack # 시작 스택을 유효 스택으로 통합하여 계산에 활용
+    eff_stack = start_stack 
     
     st.metric("유효 스택" if is_kr else "Effective Stack", f"{eff_stack} BB", f"약 {int(eff_stack * blind_level):,} 칩" if is_kr else f"~ {int(eff_stack * blind_level):,} Chips")
 
@@ -134,8 +158,8 @@ with st.sidebar:
     visitor_text = "👁️ 누적 방문자 수" if is_kr else "👁️ Total Visitors"
     st.markdown(f"""
     <div style='text-align: center; padding: 15px; background-color: #1e1e1e; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;'>
-        <span style='color: #00ccff; font-weight: bold; font-size: 1.1em;'>{visitor_text}</span><br>
-        <span style='font-size: 2em; font-weight: 900; color: white;'>{count:,}</span><span style='color: #888; font-size: 0.9em;'> 명</span>
+        <span style='color: #00ccff !important; font-weight: bold; font-size: 1.1em;'>{visitor_text}</span><br>
+        <span style='font-size: 2em; font-weight: 900; color: #ffffff !important;'>{count:,}</span><span style='color: #888888 !important; font-size: 0.9em;'> 명</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -177,7 +201,6 @@ if act_engine == "Facing Raise":
 
 elif act_engine == "Facing All-in":
     st.markdown(f"**{'상대 올인 (BB)' if is_kr else 'Opponent All-in (BB)'}**")
-    # [수정됨] 통합된 eff_stack 값을 맥스 밸류로 사용
     max_val = float(eff_stack) if eff_stack > 1 else 100.0
     if st.session_state.ai_slider > max_val: st.session_state.ai_slider = max_val
     if st.session_state.ai_box > max_val: st.session_state.ai_box = max_val
